@@ -3,13 +3,44 @@ name = "tasker"
 version = "0.1.0"
 description = "Simple file-based task tracker for git repos"
 authors = [
-    {name = "Evgeniy A. Cymbalyuk",email = "cimbaluk@gmail.com"}
+    {name = "Evgeniy A. Cymbalyuk", email = "cimbaluk@gmail.com"}
 ]
 requires-python = ">=3.10"
 dependencies = [
+    "typer>=0.12.0",
+    "typer-di>=0.1.0",
 ]
 
+[project.scripts]
+tasker = "tasker.main:app"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.0"
+pytest-cov = ">=5.0"
+tox = ">=4.0"
+mypy = ">=1.10"
+black = ">=24.0"
+isort = ">=5.13"
+
+[tool.mypy]
+strict = true
+python_version = "3.10"
+
+[[tool.mypy.overrides]]
+module = "typer_di.*"
+ignore_missing_imports = true
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
