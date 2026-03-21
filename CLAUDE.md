@@ -16,23 +16,18 @@ poetry install --with dev
 
 ```bash
 # Run tests
-tox -e test
-pytest tests/ -v                        # directly, faster
+poetry run tox -e test
+poetry run pytest tests/ -v             # directly, faster
 
 # Lint (black check + isort check + mypy)
-tox -e lint
+poetry run tox -e lint
 
 # Format code
-black src tests
-isort src tests
+poetry run black src tests
+poetry run isort src tests
 
 # Type check
-mypy src tests
-
-# Run CLI
-tasker --help
-tasker hello
-tasker hello Alice
+poetry run mypy src tests
 ```
 
 ## Architecture
