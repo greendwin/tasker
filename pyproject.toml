@@ -25,14 +25,11 @@ tox = ">=4.0"
 mypy = ">=1.10"
 black = ">=24.0"
 isort = ">=5.13"
+flake8 = ">=7.0"
 
 [tool.mypy]
 strict = true
 python_version = "3.10"
-
-[[tool.mypy.overrides]]
-module = "typer_di.*"
-ignore_missing_imports = true
 
 [tool.black]
 line-length = 88
@@ -41,6 +38,7 @@ target-version = ["py310"]
 [tool.isort]
 profile = "black"
 line_length = 88
+
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
