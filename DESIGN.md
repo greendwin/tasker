@@ -7,91 +7,96 @@ File-based task structure and CLI command reference for `tasker`.
 
 ## Task Model
 
-Everything is a **task**. Tasks are recursive — any task can have subtasks of any form at any depth.
+Two levels: **stories** (root) and **tasks** (within a story).
 
-### Three Forms
+- A **story** (`s01`) is a root-level unit of work, roughly equivalent to a user story or feature.
+- A **task** (`s01t01`) belongs to exactly one story. Task numbering is continuous within the story and carries no hierarchical meaning.
+
+> Future: epics may be introduced (`e01s02t03`), but for now the two-level model is sufficient.
+
+### Story Forms
 
 | Form | Structure | When to use |
 |---|---|---|
-| Simple | `tNN-short-name.md` | Leaf task, no children needed |
-| Simple with subtasks | `tNN-short-name.md` with `## Subtasks` section | Inline bullet subtasks |
-| Detailed | `tNN-short-name/README.md` + `tNN_MM-short-name.md` … | Subtasks that each need their own description |
+| Simple | `sNN-short-name.md` | Story with no separate task files |
+| Simple with subtasks | `sNN-short-name.md` with `## Subtasks` section | Inline bullet tasks |
+| Detailed | `sNN-short-name/README.md` + `sNNtMM-short-name.md` … | Tasks that each need their own description |
 
-Tasks **auto-upgrade** when structure requires it:
+Stories **auto-upgrade** when structure requires it:
 - Adding inline subtasks → simple with subtasks
-- Adding a detailed subtask → detailed form (dir is created, existing file becomes `README.md`)
+- Adding a detailed task → detailed form (dir is created, existing file becomes `README.md`)
+
+Tasks are always files (never directories).
 
 ---
 
 ## Task ID Scheme
 
-Root tasks use a `t` prefix followed by a zero-padded number:
+Stories use an `s` prefix followed by a zero-padded number:
 
 ```
-t01   t02   t03   …
+s01   s02   s03   …
 ```
 
-Nested tasks append child numbers with underscores:
+Tasks within a story append a `t`-prefixed zero-padded number:
 
 ```
-t01_01   t01_02   t01_02_01   …
+s01t01   s01t02   s01t03   …
 ```
 
-The `t` prefix appears only at the root level. Children are plain numbers.
+Task numbers are continuous within the story and carry no hierarchical meaning. There is no deeper nesting.
 
 ---
 
 ## Filename Format
 
-Every task file includes a short summary slug appended to the ID:
+Every file includes a short summary slug appended to the ID:
 
 ```
-t01-design-file-structure.md
-t01_02-write-cli-spec.md
-t01-design-file-structure/        ← detailed form (dir)
+s01-design-file-structure.md
+s01-design-file-structure/        ← detailed form (dir)
   README.md
-  t01_01-define-task-forms.md
+  s01t01-define-task-forms.md
+  s01t02-write-cli-spec.md
 ```
 
 **Rules:**
 - Slug is kebab-cased, max 5 words
 - Derived automatically from the task title, or set explicitly via `--slug`
-- The slug is cosmetic — tasks are always addressed by ID alone (`t01`, `t01_02`)
+- The slug is cosmetic — tasks are always addressed by ID alone (`s01`, `s01t02`)
 - When referencing a task in commands, both forms are accepted:
-  - `t01` — ID only
-  - `t01-design-file-structure` — full filename stem (slug ignored for lookup)
+  - `s01` — ID only
+  - `s01-design-file-structure` — full filename stem (slug ignored for lookup)
 
 ---
 
 ## File Structure
 
-### Simple task
+### Simple story
 
 ```
 planning/
-  t01-design-file-structure.md
+  s01-design-file-structure.md
 ```
 
-### Simple task with subtasks
-
-```
-planning/
-  t01-design-file-structure.md    ← contains ## Subtasks bullet list
-```
-
-### Detailed task
+### Simple story with subtasks
 
 ```
 planning/
-  t01-design-file-structure/
-    README.md                     ← task description + list of subtask links
-    t01_01-define-task-forms.md   ← simple subtask
-    t01_02-write-cli-spec/        ← detailed subtask
-      README.md
-      t01_02_01-draft-commands.md
+  s01-design-file-structure.md    ← contains ## Subtasks bullet list
 ```
 
-Root-level tasks live directly under `planning/`. Archived tasks move to `planning/archive/`.
+### Detailed story
+
+```
+planning/
+  s01-design-file-structure/
+    README.md                     ← story description + list of task links
+    s01t01-define-task-forms.md
+    s01t02-write-cli-spec.md
+```
+
+Root-level stories live directly under `planning/`. Archived stories move to `planning/archive/`.
 
 ---
 
@@ -108,7 +113,7 @@ Can span multiple paragraphs.
 
 Status: pending
 Depends:
-- t02 - must finish auth before starting this
+- s02 - must finish auth before starting this
 
 ## Subtasks
 
@@ -127,14 +132,14 @@ Depends:
 
 **`## Subtasks`** — present in the "simple with subtasks" form only. Each line is a checkbox entry.
 
-For the **detailed** form, `README.md` lists subtasks as links:
+For the **detailed** form, `README.md` lists tasks as links:
 
 ```
 ## Subtasks
 
-- [ ] [t01_01](t01_01-define-task-forms.md): Define task forms
-- [~] [t01_02](t01_02-write-cli-spec/): Write CLI spec
-- [x] [t01_03](t01_03-finished-task.md): Finished task
+- [ ] [s01t01](s01t01-define-task-forms.md): Define task forms
+- [~] [s01t02](s01t02-write-cli-spec.md): Write CLI spec
+- [x] [s01t03](s01t03-finished-task.md): Finished task
 ```
 
 ---
@@ -154,27 +159,27 @@ For the **detailed** form, `README.md` lists subtasks as links:
 ### Add tasks
 
 ```bash
-# Add a root-level simple task (slug auto-derived from title)
+# Add a root-level story (slug auto-derived from title)
 tasker task add <title>
 
-# Add a root-level task with explicit slug
+# Add a root-level story with explicit slug
 tasker task add <title> --slug <slug>
 
-# Add a simple subtask under a parent
-tasker task add <parent-id> <title>
+# Add an inline subtask to a story
+tasker task add <story-id> <title>
 
-# Add a detailed subtask (auto-upgrades parent to detailed form if needed)
-tasker task add <parent-id> <title> --detail
+# Add a detailed task file (auto-upgrades story to detailed form if needed)
+tasker task add <story-id> <title> --detail
 
 # Add with explicit slug (e.g. when created by AI)
-tasker task add <parent-id> <title> --detail --slug <slug>
+tasker task add <story-id> <title> --detail --slug <slug>
 ```
 
-### Upgrade task form
+### Upgrade story form
 
 ```bash
-# Promote a simple task to detailed form (creates tNN-slug/ dir)
-tasker task upgrade <task-id>
+# Promote a simple story to detailed form (creates sNN-slug/ dir)
+tasker task upgrade <story-id>
 ```
 
 ### Update task status
@@ -193,11 +198,11 @@ tasker task done <task-id> --force-close
 ### List and query
 
 ```bash
-# List all root tasks with status summary
+# List all stories with status summary
 tasker list
 
-# List subtasks of a given task
-tasker list <task-id>
+# List tasks within a story
+tasker list <story-id>
 
 # Tasks with all dependencies satisfied
 tasker list --ready
@@ -209,44 +214,44 @@ tasker list --blocked
 ### Archive
 
 ```bash
-# Move root task to planning/archive/
-tasker archive <task-id>
+# Move story to planning/archive/
+tasker archive <story-id>
 ```
 
-Only root tasks can be archived. Archiving a non-root task is an error.
+Only stories can be archived. Archiving a task is an error.
 
-> **TBD:** Archiving of mid-tree tasks may be supported in the future.
+> **TBD:** Archiving of individual tasks may be supported in the future.
 
 ---
 
 ## Examples
 
 ```bash
-# Create a root task — slug auto-derived as "design-file-structure"
+# Create a story — slug auto-derived as "design-file-structure"
 tasker task add "Design file structure"
-# → planning/t01-design-file-structure.md  (Status: pending)
+# → planning/s01-design-file-structure.md  (Status: pending)
 
-# Add subtasks
-tasker task add t01 "Define task forms"
-# → inline subtask in planning/t01-design-file-structure.md ## Subtasks
+# Add tasks
+tasker task add s01 "Define task forms"
+# → inline subtask in planning/s01-design-file-structure.md ## Subtasks
 
-tasker task add t01 "Write CLI spec" --detail
-# → auto-upgrades to planning/t01-design-file-structure/README.md
-# → creates planning/t01-design-file-structure/t01_02-write-cli-spec.md
+tasker task add s01 "Write CLI spec" --detail
+# → auto-upgrades to planning/s01-design-file-structure/README.md
+# → creates planning/s01-design-file-structure/s01t02-write-cli-spec.md
 
 # AI-created task with explicit slug
-tasker task add t01 "Implement command parsing for the new task subcommands" --slug "impl-command-parsing" --detail
-# → planning/t01-design-file-structure/t01_03-impl-command-parsing.md
+tasker task add s01 "Implement command parsing for the new task subcommands" --slug "impl-command-parsing" --detail
+# → planning/s01-design-file-structure/s01t03-impl-command-parsing.md
 
 # Reference by ID or full name — both work
-tasker task start t01_02
-tasker task start t01_02-write-cli-spec
+tasker task start s01t02
+tasker task start s01t02-write-cli-spec
 
 # Close workflow
-tasker task done t01_02
-tasker task done t01
-# Error: t01 has open subtasks. Use --force-close to override.
+tasker task done s01t02
+tasker task done s01
+# Error: s01 has open subtasks. Use --force-close to override.
 
-tasker task done t01_01
-tasker task done t01
+tasker task done s01t01
+tasker task done s01
 ```
