@@ -202,6 +202,10 @@ tasker add <parent-id> <title> --details <description>
 
 # Add with explicit slug (e.g. when created by AI)
 tasker add <parent-id> <title> --details <description> --slug <slug>
+
+# Add multiple inline subtasks interactively (empty line or EOF ends input)
+# In --json-output mode: reads stdin silently, emits { "parent_id": "s01", "task_id": ["s01t01", ...] }
+tasker add-many <parent-id>
 ```
 
 ### Update task status
@@ -260,6 +264,16 @@ tasker new "Design file structure" --details "Define how tasks are stored on dis
 # Add an inline subtask (no file created, gets an ID in ## Subtasks list)
 tasker add s01 "Define task forms"
 # → - [ ] s01t01: Define task forms  (in planning/s01-design-file-structure.md ## Subtasks)
+
+# Add multiple inline subtasks in one session (empty line ends input)
+tasker add-many s01
+#   Adding tasks to s01 (empty line to finish):
+#   > Define task forms
+#   task s01t01 added
+#   > Write CLI spec
+#   task s01t02 added
+#   >
+#   Done: 2 task(s) added to s01.
 
 # Add a subtask with details — auto-upgrades parent to extended form
 tasker add s01 "Write CLI spec" --details "Cover all commands and options"

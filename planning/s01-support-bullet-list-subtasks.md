@@ -1,6 +1,6 @@
 ---
 id: s01
-status: pending
+status: done
 ---
 
 # Support bullet list subtasks
@@ -17,4 +17,4 @@ Implement subtasks in bullet list
 - [x] s01t03: Support `TaskerError` - don't write callstack
 - [x] s01t06: Support json output and use it in tests for newly created tasks -- make sure to silent output in this case and error reports must be also in json format!
 - [x] s01t04: Better task validation with correct errors
-- [ ] s01t09: support batch mode for bullet list creation
+- [x] s01t09: support batch mode for bullet list creation

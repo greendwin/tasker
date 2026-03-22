@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -54,7 +55,8 @@ def new_task(
             config, title=title, description=details, slug=slug, extended=extended
         )
         console.print(
-            f"[green]task [blue]{task_id}[/blue] created[/green]", task_id=task_id
+            f"[green]task [blue]{task_id}[/blue] created[/green]",
+            json_output={"task_id": task_id},
         )
 
 
@@ -71,8 +73,44 @@ def add_task(
         console.print(
             f"[green]task [blue]{child_id}[/blue]"
             f" added to [blue]{task_id}[/blue][/green]",
-            task_id=child_id,
+            json_output={"task_id": child_id},
         )
+
+
+@app.command("add-many")
+def add_many_tasks(
+    *,
+    parent_ref: Annotated[str, typer.Argument(help="Parent task ID.")],
+    config: TaskerConfig = Depends(get_config),
+) -> None:
+    with console.catching_output():
+        task_id = ref_to_task_id(parent_ref)
+        console.print(
+            f"[blue]Adding tasks to {task_id}[/blue] (empty line to finish):",
+            json_output={"parent_id": task_id},
+        )
+
+        task_ids: list[str] = []
+        while True:
+            console.print("  [dim]>[/dim] ", end="")
+            line = sys.stdin.readline()
+            if not line or not line.strip():
+                break
+            child_id = add_subtask(config, task_id=task_id, title=line.strip())
+            task_ids.append(child_id)
+            console.print(f"  [green]task [blue]{child_id}[/blue] added[/green]")
+
+        if task_ids:
+            console.print(
+                f"[green]Done:[/green] {len(task_ids)} task(s) added"
+                f" to [blue]{task_id}[/blue]",
+                json_output={"task_id": task_ids},
+            )
+        else:
+            console.print(
+                "[yellow]No tasks added.[/yellow]",
+                json_output={"task_id": []},
+            )
 
 
 def main() -> None:

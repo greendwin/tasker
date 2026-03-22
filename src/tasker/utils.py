@@ -15,14 +15,17 @@ class OutputContext:
 
     def __init__(self) -> None:
         self._console = Console()
-        self._obj: dict[str, Any] = {}
+        self._json_output_obj: dict[str, Any] = {}
 
-    def print(self, text: str, **kwargs: Any) -> None:
-        for k, v in kwargs.items():
-            self._obj[k] = v
+    def print(
+        self, text: str, *, end: str = "\n", json_output: dict[str, Any] | None = None
+    ) -> None:
+        if json_output:
+            for k, v in json_output.items():
+                self._json_output_obj[k] = v
 
         if not self.json_output:
-            self._console.print(text)
+            self._console.print(text, end=end)
 
     @contextmanager
     def catching_output(self) -> Iterator[None]:
@@ -35,24 +38,24 @@ class OutputContext:
                 console.print(f"[red]Error:[/red] {ex}")
                 raise typer.Exit(1) from ex
 
-            self._obj = {"error": str(ex)}
+            self._json_output_obj = {"error": str(ex)}
             if ex.task_ref is not None:
-                self._obj["task_ref"] = ex.task_ref
+                self._json_output_obj["task_ref"] = ex.task_ref
             if self.debug:
-                self._obj["traceback"] = traceback.format_exc()
+                self._json_output_obj["traceback"] = traceback.format_exc()
             raise typer.Exit(1) from ex
         except Exception as ex:
             if not self.json_output:
                 raise
 
-            self._obj = {
+            self._json_output_obj = {
                 "error": str(ex),
                 "traceback": traceback.format_exc(),
             }
             raise typer.Exit(1) from ex
         finally:
             if self.json_output:
-                self._console.print_json(data=self._obj)
+                self._console.print_json(data=self._json_output_obj)
 
 
 console = OutputContext()
