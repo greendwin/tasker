@@ -1,0 +1,40 @@
+import pytest
+
+from tasker.main import app
+
+from .helpers import assert_invoke
+
+
+def test_assert_invoke_returns_result_on_success() -> None:
+    result = assert_invoke(app, ["add", "some title"])
+    assert result.exit_code == 0
+
+
+def test_assert_invoke_raises_on_nonzero_exit() -> None:
+    with pytest.raises(AssertionError):
+        assert_invoke(app, ["add"])  # missing required argument → exit code 2
+
+
+def test_assert_invoke_error_includes_exit_code() -> None:
+    with pytest.raises(AssertionError, match="code 2"):
+        assert_invoke(app, ["add"])
+
+
+def test_assert_invoke_error_includes_output() -> None:
+    with pytest.raises(AssertionError, match="Missing argument"):
+        assert_invoke(app, ["add"])
+
+
+def test_assert_invoke_expect_error_passes_on_nonzero_exit() -> None:
+    result = assert_invoke(app, ["add"], expect_error=True)
+    assert result.exit_code != 0
+
+
+def test_assert_invoke_expect_error_raises_on_success() -> None:
+    with pytest.raises(AssertionError):
+        assert_invoke(app, ["add", "some title"], expect_error=True)
+
+
+def test_assert_invoke_expect_error_message_includes_output() -> None:
+    with pytest.raises(AssertionError, match="expected to fail"):
+        assert_invoke(app, ["add", "some title"], expect_error=True)
