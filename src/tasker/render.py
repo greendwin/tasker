@@ -2,7 +2,7 @@ from pathlib import Path
 
 from jinja2 import Environment, PackageLoader
 
-from ._base_types import EXTENDED_TASK_FILENAME, BasicTask, FileTask, TaskStatus
+from .base_types import EXTENDED_TASK_FILENAME, BasicTask, FileTask, TaskStatus
 
 _CHECKBOX = {
     TaskStatus.PENDING: " ",

@@ -2,8 +2,9 @@ from pathlib import Path
 
 import pytest
 
+from tasker.base_types import TaskStatus
 from tasker.main import app
-from tasker.task import TaskStatus, parse_task
+from tasker.parse import parse_task
 
 from .helpers import assert_invoke, create_task
 

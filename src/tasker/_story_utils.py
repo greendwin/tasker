@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from ._exceptions import TaskerError
-from .task import EXTENDED_TASK_FILENAME
+from .base_types import EXTENDED_TASK_FILENAME
+from .exceptions import TaskerError
 
 
 def find_task_file(root: Path, task_id: str) -> Path:

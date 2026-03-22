@@ -2,17 +2,12 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from tasker.task import (
-    BasicTask,
-    ExtendedTask,
-    InlineTask,
-    TaskStatus,
-    parse_task,
-    render_task_file,
-)
+from tasker.base_types import BasicTask, ExtendedTask, InlineTask, TaskStatus
+from tasker.parse import parse_task
+from tasker.render import render_task_file
 
-from ._exceptions import TaskerError
 from ._story_utils import find_task_file
+from .exceptions import TaskerError
 
 
 @dataclass

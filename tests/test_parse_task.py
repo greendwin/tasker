@@ -2,15 +2,10 @@ from pathlib import Path
 
 import pytest
 
-from tasker._exceptions import TaskValidateError
-from tasker.task import (
-    BasicTask,
-    ExtendedTask,
-    FileTask,
-    TaskStatus,
-    parse_task,
-    render_task_file,
-)
+from tasker.base_types import BasicTask, ExtendedTask, FileTask, TaskStatus
+from tasker.exceptions import TaskValidateError
+from tasker.parse import parse_task
+from tasker.render import render_task_file
 
 _DIR = Path("/tmp/tasks")
 
