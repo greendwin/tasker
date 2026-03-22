@@ -35,14 +35,17 @@ def render_task(task: FileTask) -> str:
     )
 
 
-def render_task_file(root: Path, task: FileTask) -> None:
+def task_file_path(root: Path, task: FileTask) -> Path:
     if task.parent is not None:
+        # need to build nested path from root
         raise NotImplementedError("nested tasks are not supported yet")
 
     if isinstance(task, BasicTask):
-        path = root / f"{task.id}-{task.slug}.md"
-    else:
-        path = root / f"{task.id}-{task.slug}" / EXTENDED_TASK_FILENAME
+        return root / f"{task.id}-{task.slug}.md"
+    return root / f"{task.id}-{task.slug}" / EXTENDED_TASK_FILENAME
 
+
+def write_task_file(root: Path, task: FileTask, *, content: str) -> None:
+    path = task_file_path(root, task)
     path.parent.mkdir(exist_ok=True)
-    path.write_text(render_task(task))
+    path.write_text(content)

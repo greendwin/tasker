@@ -4,7 +4,7 @@ import pytest
 
 from tasker.base_types import TaskStatus
 from tasker.main import app
-from tasker.parse import parse_task
+from tasker.parse import parse_task_file
 
 from .helpers import assert_invoke, create_task
 
@@ -58,7 +58,7 @@ def test_add_subtask_parse_roundtrip(parent_id: str) -> None:
     assert_invoke(app, ["add", parent_id, "First subtask"])
     assert_invoke(app, ["add", parent_id, "Second subtask"])
     task_file = next(Path("planning").glob(f"{parent_id}-*.md"))
-    task = parse_task(task_file)
+    task = parse_task_file(task_file)
     assert len(task.subtasks) == 2
     assert task.subtasks[0].id == f"{parent_id}t01"
     assert task.subtasks[0].title == "First subtask"

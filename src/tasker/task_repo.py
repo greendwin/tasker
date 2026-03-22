@@ -1,9 +1,17 @@
 import re
 from pathlib import Path
 
-from tasker.base_types import AnyTask, BasicTask, ExtendedTask, FileTask, InlineTask
+from tasker.base_types import (
+    AnyTask,
+    BasicTask,
+    ExtendedTask,
+    FileTask,
+    InlineTask,
+    TaskStatus,
+)
 from tasker.exceptions import TaskerError
-from tasker.parse import parse_task, parse_task_ref
+from tasker.parse import detect_task_type, parse_task, parse_task_ref
+from tasker.render import render_task, write_task_file
 
 
 def generate_slug(title: str) -> str:
@@ -16,11 +24,11 @@ class TaskRepo:
         self.root = root
         self._stories: dict[str, FileTask] = {}
         self._tasks: dict[str, AnyTask] = {}
+        self._disk_content: dict[str, str] = {}
 
     def resolve_ref(self, task_ref: str) -> AnyTask:
         ti = parse_task_ref(task_ref)
 
-        # load corresponding story tree
         if ti.root_id not in self._stories:
             self._load_story(ti.root_id)
 
@@ -31,6 +39,53 @@ class TaskRepo:
             )
 
         return task
+
+    def create_story(
+        self,
+        *,
+        title: str,
+        description: str | None,
+        slug: str | None,
+        extended: bool,
+    ) -> str:
+        title = title[:1].upper() + title[1:]
+        story_id = self.next_child_id(None)
+
+        if slug is None:
+            slug = generate_slug(title)
+
+        task_type = ExtendedTask if extended else BasicTask
+        task = task_type(
+            parent=None,
+            id=story_id,
+            slug=slug,
+            title=title,
+            description=description,
+            status=TaskStatus.PENDING,
+            subtasks=[],
+        )
+
+        self._stories[story_id] = task
+        self._tasks[story_id] = task
+        self._disk_content[story_id] = ""  # new — not yet on disk
+
+        return f"{story_id}-{slug}"
+
+    def add_subtask(self, *, task_ref: str, title: str) -> str:
+        title = title[:1].upper() + title[1:]
+
+        parent = self.resolve_ref(task_ref)
+        if isinstance(parent, InlineTask):
+            raise NotImplementedError("task upgrades are not supported yet")
+
+        child_id = self.next_child_id(task_ref)
+        subtask = InlineTask(
+            id=child_id, title=title, status=TaskStatus.PENDING, parent=None
+        )
+        parent.subtasks.append(subtask)
+        self._tasks[child_id] = subtask
+
+        return child_id
 
     def next_child_id(self, task_ref: str | None) -> str:
         if task_ref is None:
@@ -55,13 +110,41 @@ class TaskRepo:
         ]
         return f"{child_prefix}{max(existing_nums, default=0) + 1:02d}"
 
+    def flush_tasks_to_disk(self) -> None:
+        for story in self._stories.values():
+            rendered = render_task(story)
+            if rendered != self._disk_content.get(story.id, ""):
+                write_task_file(self.root, story, content=rendered)
+                self._disk_content[story.id] = rendered
+
     def _load_story(self, root_id: str) -> None:
         candidates = list(self.root.glob(f"{root_id}-*"))
         if not candidates:
             raise TaskerError(f"Story {root_id!r} not found", task_ref=root_id)
-        story = parse_task(candidates[0])
-        self._stories[root_id] = story
-        self._register_tasks(story)
+
+        if len(candidates) > 1:
+            names = ", ".join(p.name for p in candidates)
+            raise TaskerError(
+                f"Ambiguous story {root_id!r}: multiple files match: {names}",
+                task_ref=root_id,
+            )
+
+        tt = detect_task_type(candidates[0])
+        assert tt.task_id == root_id
+
+        content = tt.content_path.read_text(encoding="utf-8")
+
+        task = parse_task(
+            content,
+            task_id=tt.task_id,
+            slug=tt.slug,
+            extended=tt.extended,
+        )
+
+        self._disk_content[root_id] = content
+
+        self._stories[root_id] = task
+        self._register_tasks(task)
 
     def _register_tasks(self, task: FileTask) -> None:
         self._tasks[task.id] = task

@@ -13,13 +13,113 @@ from .base_types import (
 from .exceptions import TaskValidateError
 
 # ID: s<digits> or s<digits>t<digits> (t appears once; each level adds two digits)
-_STEM_RE = re.compile(r"^(s\d+(?:t(?:\d{2})+)?)-(.+)$")
 _SUBTASK_RE = re.compile(r"^- \[(.)\] (s\d+t(?:\d{2})+): (.+)$")
 _CHECKBOX_STATUS = {
     " ": TaskStatus.PENDING,
     "~": TaskStatus.IN_PROGRESS,
     "x": TaskStatus.DONE,
 }
+
+
+class ParsedRef(NamedTuple):
+    value: str  # original value "id-slug or id"
+    task_id: str
+    slug: str | None
+    parent_id: str
+    root_id: str
+
+
+def parse_task_ref(task_ref: str) -> ParsedRef:
+    # strip optional slug from input like "s01t01-define-task-forms"
+    m = re.match(r"^(s\d+(?:t(?:\d{2})+)?)", task_ref)
+    if not m:
+        raise TaskValidateError(f"Invalid task ref: {task_ref!r}", task_ref=task_ref)
+    task_id = m.group(1)
+    rest = task_ref[m.end() :]
+    slug = rest[1:] if rest.startswith("-") else None
+
+    if "t" not in task_id:
+        root_id = task_id
+        parent_id = task_id
+    else:
+        t_pos = task_id.index("t")
+        root_id = task_id[:t_pos]
+        digits_after_t = task_id[t_pos + 1 :]
+        parent_id = task_id[:t_pos] if len(digits_after_t) == 2 else task_id[:-2]
+
+    return ParsedRef(
+        value=task_ref,
+        task_id=task_id,
+        slug=slug,
+        parent_id=parent_id,
+        root_id=root_id,
+    )
+
+
+class TaskDetectResult(NamedTuple):
+    task_ref: str
+    task_id: str
+    slug: str
+    extended: bool
+    content_path: Path
+
+
+def detect_task_type(task_path: Path) -> TaskDetectResult:
+    if task_path.is_dir():
+        extended = True
+        task_ref = task_path.name
+        content_path = task_path / EXTENDED_TASK_FILENAME
+    else:
+        extended = False
+        task_ref = task_path.stem
+        content_path = task_path
+
+    ref = parse_task_ref(task_ref)
+    if ref.slug is None:
+        raise TaskValidateError(
+            f"Invalid task {task_path!r} with missing slug", task_ref=task_ref
+        )
+
+    return TaskDetectResult(
+        task_ref=ref.value,
+        task_id=ref.task_id,
+        slug=ref.slug,
+        extended=extended,
+        content_path=content_path,
+    )
+
+
+def parse_task(
+    content: str, *, task_id: str, slug: str, extended: bool
+) -> BasicTask | ExtendedTask:
+    try:
+        parsed = _parse_content(content)
+    except TaskValidateError as ex:
+        ex.task_ref = task_id
+        raise
+
+    task_cls = ExtendedTask if extended else BasicTask
+    return task_cls(
+        parent=None,
+        id=parsed.id,
+        slug=slug,
+        title=parsed.title,
+        description=parsed.description,
+        status=parsed.status,
+        subtasks=parsed.subtasks,
+    )
+
+
+def parse_task_file(path: Path) -> BasicTask | ExtendedTask:
+    tt = detect_task_type(path)
+    content = tt.content_path.read_text(encoding="utf-8")
+    try:
+        return parse_task(
+            content, task_id=tt.task_id, slug=tt.slug, extended=tt.extended
+        )
+    except TaskValidateError as ex:
+        ex.task_ref = tt.task_ref
+        raise
 
 
 class _ParsedContent(NamedTuple):
@@ -98,59 +198,3 @@ def _parse_content(content: str) -> _ParsedContent:
         status=status,
         subtasks=subtasks,
     )
-
-
-def parse_task(task: Path) -> BasicTask | ExtendedTask:
-    detailed = task.is_dir()
-    content_path = task / EXTENDED_TASK_FILENAME if detailed else task
-    stem = task.name if detailed else task.stem
-
-    m = _STEM_RE.match(stem)
-    if not m:
-        raise TaskValidateError(f"Invalid task filename: {stem!r}", task_ref=str(task))
-    slug = m.group(2)
-
-    try:
-        parsed = _parse_content(content_path.read_text())
-    except TaskValidateError as ex:
-        ex.task_ref = str(task)
-        raise
-
-    task_cls = ExtendedTask if detailed else BasicTask
-    return task_cls(
-        parent=None,
-        id=parsed.id,
-        slug=slug,
-        title=parsed.title,
-        description=parsed.description,
-        status=parsed.status,
-        subtasks=parsed.subtasks,
-    )
-
-
-class ParsedRef(NamedTuple):
-    task_id: str
-    parent_id: str
-    root_id: str
-    slug: str | None
-
-
-def parse_task_ref(task_ref: str) -> ParsedRef:
-    # strip optional slug from input like "s01t01-define-task-forms"
-    m = re.match(r"^(s\d+(?:t(?:\d{2})+)?)", task_ref)
-    if not m:
-        raise TaskValidateError(f"Invalid task ref: {task_ref!r}", task_ref=task_ref)
-    task_id = m.group(1)
-    rest = task_ref[m.end() :]
-    slug = rest[1:] if rest.startswith("-") else None
-
-    if "t" not in task_id:
-        root_id = task_id
-        parent_id = task_id
-    else:
-        t_pos = task_id.index("t")
-        root_id = task_id[:t_pos]
-        digits_after_t = task_id[t_pos + 1 :]
-        parent_id = task_id[:t_pos] if len(digits_after_t) == 2 else task_id[:-2]
-
-    return ParsedRef(task_id=task_id, parent_id=parent_id, root_id=root_id, slug=slug)
