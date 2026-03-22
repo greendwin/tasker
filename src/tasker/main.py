@@ -5,7 +5,9 @@ from typing import Annotated, Optional
 import typer
 from typer_di import Depends, TyperDI
 
-from tasker.methods import TaskerConfig, add_subtask, create_new_story, ref_to_task_id
+from tasker.methods import add_subtask, create_new_story
+from tasker.parse import parse_task_ref
+from tasker.task_repo import TaskRepo
 from tasker.utils import console
 
 app = TyperDI(
@@ -29,10 +31,11 @@ def _callback(
     console.json_output = json_output
 
 
-def get_config() -> TaskerConfig:
+def get_task_repo() -> TaskRepo:
+    # TODO: this should be `.tasker`
     planning = Path("planning")
     planning.mkdir(exist_ok=True)
-    return TaskerConfig(root_dir=planning)
+    return TaskRepo(planning)
 
 
 @app.command("new")
@@ -48,11 +51,11 @@ def new_task(
     extended: Annotated[
         bool, typer.Option("--extended", help="Create task as a directory.")
     ] = False,
-    config: TaskerConfig = Depends(get_config),
+    repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
         task_id = create_new_story(
-            config, title=title, description=details, slug=slug, extended=extended
+            repo, title=title, description=details, slug=slug, extended=extended
         )
         console.print(
             f"[green]task [blue]{task_id}[/blue] created[/green]",
@@ -65,14 +68,13 @@ def add_task(
     *,
     parent_ref: Annotated[str, typer.Argument(help="Parent task ID.")],
     title: Annotated[str, typer.Argument(help="Subtask title.")],
-    config: TaskerConfig = Depends(get_config),
+    repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
-        task_id = ref_to_task_id(parent_ref)
-        child_id = add_subtask(config, task_id=task_id, title=title)
+        child_id = add_subtask(repo, task_ref=parent_ref, title=title)
         console.print(
             f"[green]task [blue]{child_id}[/blue]"
-            f" added to [blue]{task_id}[/blue][/green]",
+            f" added to [blue]{parent_ref}[/blue][/green]",
             json_output={"task_id": child_id},
         )
 
@@ -81,13 +83,13 @@ def add_task(
 def add_many_tasks(
     *,
     parent_ref: Annotated[str, typer.Argument(help="Parent task ID.")],
-    config: TaskerConfig = Depends(get_config),
+    repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
-        task_id = ref_to_task_id(parent_ref)
+        parent = parse_task_ref(parent_ref)
         console.print(
-            f"[blue]Adding tasks to {task_id}[/blue] (empty line to finish):",
-            json_output={"parent_id": task_id},
+            f"[blue]Adding tasks to {parent.task_id}[/blue] (empty line to finish):",
+            json_output={"parent_id": parent.task_id},
         )
 
         task_ids: list[str] = []
@@ -96,14 +98,14 @@ def add_many_tasks(
             line = sys.stdin.readline()
             if not line or not line.strip():
                 break
-            child_id = add_subtask(config, task_id=task_id, title=line.strip())
+            child_id = add_subtask(repo, task_ref=parent.task_id, title=line.strip())
             task_ids.append(child_id)
             console.print(f"  [green]task [blue]{child_id}[/blue] added[/green]")
 
         if task_ids:
             console.print(
                 f"[green]Done:[/green] {len(task_ids)} task(s) added"
-                f" to [blue]{task_id}[/blue]",
+                f" to [blue]{parent.task_id}[/blue]",
                 json_output={"task_id": task_ids},
             )
         else:

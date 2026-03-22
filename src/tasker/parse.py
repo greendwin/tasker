@@ -2,7 +2,6 @@ import re
 from pathlib import Path
 from typing import NamedTuple
 
-from .exceptions import TaskValidateError
 from .base_types import (
     EXTENDED_TASK_FILENAME,
     AnyTask,
@@ -11,6 +10,7 @@ from .base_types import (
     InlineTask,
     TaskStatus,
 )
+from .exceptions import TaskValidateError
 
 # ID: s<digits> or s<digits>t<digits> (t appears once; each level adds two digits)
 _STEM_RE = re.compile(r"^(s\d+(?:t(?:\d{2})+)?)-(.+)$")
@@ -126,3 +126,31 @@ def parse_task(task: Path) -> BasicTask | ExtendedTask:
         status=parsed.status,
         subtasks=parsed.subtasks,
     )
+
+
+class ParsedRef(NamedTuple):
+    task_id: str
+    parent_id: str
+    root_id: str
+    slug: str | None
+
+
+def parse_task_ref(task_ref: str) -> ParsedRef:
+    # strip optional slug from input like "s01t01-define-task-forms"
+    m = re.match(r"^(s\d+(?:t(?:\d{2})+)?)", task_ref)
+    if not m:
+        raise TaskValidateError(f"Invalid task ref: {task_ref!r}", task_ref=task_ref)
+    task_id = m.group(1)
+    rest = task_ref[m.end() :]
+    slug = rest[1:] if rest.startswith("-") else None
+
+    if "t" not in task_id:
+        root_id = task_id
+        parent_id = task_id
+    else:
+        t_pos = task_id.index("t")
+        root_id = task_id[:t_pos]
+        digits_after_t = task_id[t_pos + 1 :]
+        parent_id = task_id[:t_pos] if len(digits_after_t) == 2 else task_id[:-2]
+
+    return ParsedRef(task_id=task_id, parent_id=parent_id, root_id=root_id, slug=slug)
