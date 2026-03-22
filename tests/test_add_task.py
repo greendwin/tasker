@@ -41,3 +41,14 @@ def test_add_task_without_description_has_no_placeholder() -> None:
     assert_invoke(app, ["add", "My task"])
     content = Path("planning/s01-my-task.md").read_text()
     assert "None" not in content
+
+
+def test_add_task_explicit_slug() -> None:
+    result = assert_invoke(app, ["add", "My long task title", "--slug", "custom-slug"])
+    assert "task s01-custom-slug created" in result.output
+    assert Path("planning/s01-custom-slug.md").exists()
+
+
+def test_add_task_explicit_slug_overrides_derived() -> None:
+    assert_invoke(app, ["add", "My long task title", "--slug", "custom-slug"])
+    assert not Path("planning/s01-my-long-task-title.md").exists()

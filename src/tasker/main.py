@@ -33,6 +33,9 @@ def add_task(
     description: Annotated[
         Optional[str], typer.Option("--description", "-d", help="Task description.")
     ] = None,
+    slug: Annotated[
+        Optional[str], typer.Option("--slug", help="Override auto-derived slug.")
+    ] = None,
 ) -> None:
     root = _get_root_dir()
 
@@ -41,8 +44,9 @@ def add_task(
     ]
     next_n = max(existing, default=0) + 1
 
-    words = re.sub(r"[^a-z0-9\s]", "", title.lower()).split()[:5]
-    slug = "-".join(words)
+    if slug is None:
+        words = re.sub(r"[^a-z0-9\s]", "", title.lower()).split()[:5]
+        slug = "-".join(words)
 
     story_id = f"s{next_n:02d}"
     filename = f"{story_id}-{slug}"
