@@ -5,6 +5,7 @@ from typing import Annotated, Optional
 import typer
 from typer_di import TyperDI
 
+from tasker.data import Task, TaskStatus
 from tasker.generate import render_task_file
 from tasker.utils import console
 
@@ -51,7 +52,17 @@ def add_task(
     story_id = f"s{next_n:02d}"
     filename = f"{story_id}-{slug}"
 
-    render_task_file(root / f"{filename}.md", title, description)
+    task = Task(
+        id=story_id,
+        slug=slug,
+        title=title,
+        description=description,
+        status=TaskStatus.PENDING,
+        subtasks=[],
+        loaded=True,
+        filename=filename,
+    )
+    render_task_file(root / f"{filename}.md", task)
 
     console.print(f"[green]task [blue]{filename}[/blue] created[/green]")
 

@@ -1,9 +1,10 @@
 __all__ = ["render_task", "render_task_file"]
 
 from pathlib import Path
-from typing import Optional
 
 from jinja2 import Environment, PackageLoader
+
+from tasker.data import Task
 
 _jinja = Environment(
     loader=PackageLoader("tasker", "templates"),
@@ -13,22 +14,13 @@ _jinja = Environment(
 )
 
 
-def render_task(
-    title: str,
-    description: Optional[str] = None,
-    status: str = "pending",
-) -> str:
+def render_task(task: Task) -> str:
     return _jinja.get_template("task.md.j2").render(
-        title=title,
-        description=description,
-        status=status,
+        title=task.title,
+        description=task.description,
+        status=task.status.value,
     )
 
 
-def render_task_file(
-    path: Path,
-    title: str,
-    description: Optional[str] = None,
-    status: str = "pending",
-) -> None:
-    path.write_text(render_task(title, description, status))
+def render_task_file(path: Path, task: Task) -> None:
+    path.write_text(render_task(task))
