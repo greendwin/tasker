@@ -1,7 +1,6 @@
 from pathlib import Path
 
-from tasker.generate import render_task_file
-from tasker.task import Task, TaskStatus, parse_task
+from tasker.task import BasicTask, ExtendedTask, FileTask, TaskStatus, parse_task, render_task_file
 
 _DIR = Path("/tmp/tasks")
 
@@ -14,21 +13,20 @@ def _write_task(
 ) -> Path:
     _DIR.mkdir(exist_ok=True)
     stem = name.removesuffix(".md")
-    path = _DIR / name
+    task_id, slug = stem.split("-", 1)
     render_task_file(
-        path,
-        Task(
-            id=stem.split("-", 1)[0],
-            slug=stem.split("-", 1)[1],
+        _DIR,
+        BasicTask(
+            parent=None,
+            id=task_id,
+            slug=slug,
             title=title,
             description=description,
             status=status,
             subtasks=[],
-            loaded=True,
-            filename=stem,
         ),
     )
-    return path
+    return _DIR / name
 
 
 def test_parse_title() -> None:
@@ -73,53 +71,39 @@ def test_parse_multiline_description() -> None:
     assert task.description == "Line one\nLine two"
 
 
-def test_parse_simple_file_not_detailed() -> None:
+def test_parse_simple_file_is_basic() -> None:
     task = parse_task(_write_task("s01-my-task.md", "My task"))
-    assert task.detailed is False
+    assert isinstance(task, BasicTask)
 
 
 def test_parse_detailed_dir() -> None:
     _DIR.mkdir(exist_ok=True)
-    story_dir = _DIR / "s01-my-task"
-    story_dir.mkdir()
     render_task_file(
-        story_dir / "README.md",
-        Task(
+        _DIR,
+        ExtendedTask(
+            parent=None,
             id="s01",
             slug="my-task",
             title="My task",
             status=TaskStatus.PENDING,
             subtasks=[],
-            loaded=True,
-            filename="s01-my-task",
         ),
     )
-    task = parse_task(story_dir)
-    assert task.detailed is True
+    task = parse_task(_DIR / "s01-my-task")
+    assert isinstance(task, ExtendedTask)
     assert task.id == "s01"
     assert task.slug == "my-task"
 
 
-def test_parse_returns_task_model() -> None:
+def test_parse_returns_file_task() -> None:
     task = parse_task(_write_task("s01-my-task.md", "My task"))
-    assert isinstance(task, Task)
+    assert isinstance(task, FileTask)
 
 
 def test_parse_invalid_filename_raises() -> None:
     _DIR.mkdir(exist_ok=True)
     bad = _DIR / "bad-name.md"
-    render_task_file(
-        bad,
-        Task(
-            id="bad",
-            slug="name",
-            title="Title",
-            status=TaskStatus.PENDING,
-            subtasks=[],
-            loaded=True,
-            filename="bad-name",
-        ),
-    )
+    bad.write_text("Title\n=====\n\n## Props\n\nStatus: pending\n")
     try:
         parse_task(bad)
         assert False, "expected ValueError"

@@ -5,8 +5,7 @@ from typing import Annotated, Optional
 import typer
 from typer_di import TyperDI
 
-from tasker.generate import render_task_file
-from tasker.task import Task, TaskStatus
+from tasker.task import BasicTask, ExtendedTask, TaskStatus, render_task_file
 from tasker.utils import console
 
 app = TyperDI(
@@ -28,17 +27,17 @@ def _get_root_dir() -> Path:
     return planning
 
 
-@app.command("add")
-def add_task(
+@app.command("new")
+def new_task(
     title: Annotated[str, typer.Argument(help="Task title.")],
-    description: Annotated[
-        Optional[str], typer.Option("--description", "-d", help="Task description.")
+    details: Annotated[
+        Optional[str], typer.Option("--details", "-d", help="Task description.")
     ] = None,
     slug: Annotated[
         Optional[str], typer.Option("--slug", help="Override auto-derived slug.")
     ] = None,
-    detail: Annotated[
-        bool, typer.Option("--detail", help="Create task as a directory.")
+    extended: Annotated[
+        bool, typer.Option("--extended", help="Create task as a directory.")
     ] = False,
 ) -> None:
     root = _get_root_dir()
@@ -55,23 +54,19 @@ def add_task(
     story_id = f"s{next_n:02d}"
     filename = f"{story_id}-{slug}"
 
-    task = Task(
+    task_type = ExtendedTask if extended else BasicTask
+
+    task = task_type(
+        parent=None,
         id=story_id,
         slug=slug,
         title=title,
-        description=description,
+        description=details or "",
         status=TaskStatus.PENDING,
         subtasks=[],
-        detailed=detail,
-        loaded=True,
-        filename=filename,
     )
-    if detail:
-        task_dir = root / filename
-        task_dir.mkdir()
-        render_task_file(task_dir / "README.md", task)
-    else:
-        render_task_file(root / f"{filename}.md", task)
+
+    render_task_file(root, task)
 
     console.print(f"[green]task [blue]{filename}[/blue] created[/green]")
 

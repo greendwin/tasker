@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-from ._base_type import Task, TaskStatus
+from ._base_types import BasicTask, ExtendedTask, TaskStatus
 
 _STEM_RE = re.compile(r"^(s\d+(?:t\d+)?)-(.+)$")
 
@@ -28,7 +28,7 @@ def _parse_content(content: str) -> tuple[str, str | None, TaskStatus]:
     return title, description, status
 
 
-def parse_task(task: Path) -> Task:
+def parse_task(task: Path) -> BasicTask | ExtendedTask:
     detailed = task.is_dir()
     content_path = task / "README.md" if detailed else task
     stem = task.name if detailed else task.stem
@@ -40,14 +40,13 @@ def parse_task(task: Path) -> Task:
 
     title, description, status = _parse_content(content_path.read_text())
 
-    return Task(
+    task_cls = ExtendedTask if detailed else BasicTask
+    return task_cls(
+        parent=None,
         id=task_id,
         slug=slug,
         title=title,
         description=description,
         status=status,
         subtasks=[],
-        detailed=detailed,
-        loaded=True,
-        filename=stem,
     )
