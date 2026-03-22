@@ -37,6 +37,12 @@ def test_add_task_with_description() -> None:
     assert "Some details here" in content
 
 
+def test_add_task_title_is_capitalized() -> None:
+    assert_invoke(app, ["new", "my task"])
+    content = Path("planning/s01-my-task.md").read_text()
+    assert "# My task" in content
+
+
 def test_add_task_without_description_has_no_placeholder() -> None:
     assert_invoke(app, ["new", "My task"])
     content = Path("planning/s01-my-task.md").read_text()

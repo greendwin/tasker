@@ -29,6 +29,7 @@ def create_new_story(
     extended: bool,
 ) -> str:
     root = config.root_dir
+    title = title[:1].upper() + title[1:]
 
     existing = [
         int(m.group(1)) for p in root.iterdir() if (m := re.match(r"^s(\d+)", p.name))
@@ -70,6 +71,7 @@ def ref_to_task_id(reference: str) -> str:
 
 def add_subtask(config: TaskerConfig, *, task_id: str, title: str) -> str:
     root = config.root_dir
+    title = title[:1].upper() + title[1:]
 
     task_path = find_task_file(root, task_id)
 

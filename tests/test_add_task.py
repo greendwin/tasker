@@ -43,6 +43,13 @@ def test_add_subtask_strips_slug_from_parent_id() -> None:
     assert "s01t01" in result.output
 
 
+def test_add_subtask_title_is_capitalized() -> None:
+    _create_parent()
+    assert_invoke(app, ["add", "s01", "define task forms"])
+    content = Path("planning/s01-my-story.md").read_text()
+    assert "- [ ] s01t01: Define task forms" in content
+
+
 def test_add_subtask_parse_roundtrip() -> None:
     _create_parent()
     assert_invoke(app, ["add", "s01", "First subtask"])
