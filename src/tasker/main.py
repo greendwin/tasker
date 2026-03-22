@@ -1,3 +1,6 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -5,7 +8,7 @@ import typer
 from typer_di import Depends, TyperDI
 
 from tasker.methods import TaskerConfig, add_subtask, create_new_story, ref_to_task_id
-from tasker.utils import console
+from tasker.utils import console, error_reporter
 
 app = TyperDI(
     name="tasker",
@@ -16,8 +19,12 @@ app = TyperDI(
 
 
 @app.callback()
-def _callback() -> None:
-    pass
+def _callback(
+    debug: Annotated[
+        bool, typer.Option("--debug", help="Show full tracebacks on errors.")
+    ] = False,
+) -> None:
+    error_reporter.debug = debug
 
 
 def get_config() -> TaskerConfig:
@@ -41,11 +48,11 @@ def new_task(
     ] = False,
     config: TaskerConfig = Depends(get_config),
 ) -> None:
-    task_id = create_new_story(
-        config, title=title, description=details, slug=slug, extended=extended
-    )
-
-    console.print(f"[green]task [blue]{task_id}[/blue] created[/green]")
+    with error_reporter.catch_errors():
+        task_id = create_new_story(
+            config, title=title, description=details, slug=slug, extended=extended
+        )
+        console.print(f"[green]task [blue]{task_id}[/blue] created[/green]")
 
 
 @app.command("add")
@@ -55,17 +62,13 @@ def add_task(
     title: Annotated[str, typer.Argument(help="Subtask title.")],
     config: TaskerConfig = Depends(get_config),
 ) -> None:
-    task_id = ref_to_task_id(parent_ref)
-
-    child_id = add_subtask(
-        config,
-        task_id=task_id,
-        title=title,
-    )
-
-    console.print(
-        f"[green]task [blue]{child_id}[/blue] added to [blue]{task_id}[/blue][/green]"
-    )
+    with error_reporter.catch_errors():
+        task_id = ref_to_task_id(parent_ref)
+        child_id = add_subtask(config, task_id=task_id, title=title)
+        console.print(
+            f"[green]task [blue]{child_id}[/blue]"
+            f" added to [blue]{task_id}[/blue][/green]"
+        )
 
 
 def main() -> None:
