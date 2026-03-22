@@ -29,3 +29,15 @@ def test_add_task_file_contains_pending_status() -> None:
     assert_invoke(app, ["add", "My important task"])
     content = Path("planning/s01-my-important-task.md").read_text()
     assert "Status: pending" in content
+
+
+def test_add_task_with_description() -> None:
+    assert_invoke(app, ["add", "My task", "--description", "Some details here"])
+    content = Path("planning/s01-my-task.md").read_text()
+    assert "Some details here" in content
+
+
+def test_add_task_without_description_has_no_placeholder() -> None:
+    assert_invoke(app, ["add", "My task"])
+    content = Path("planning/s01-my-task.md").read_text()
+    assert "None" not in content

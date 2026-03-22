@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 from textwrap import dedent
-from typing import Annotated
+from typing import Annotated, Optional
 
 import typer
 from typer_di import TyperDI
@@ -30,6 +30,9 @@ def _get_root_dir() -> Path:
 @app.command("add")
 def add_task(
     title: Annotated[str, typer.Argument(help="Task title.")],
+    description: Annotated[
+        Optional[str], typer.Option("--description", "-d", help="Task description.")
+    ] = None,
 ) -> None:
     root = _get_root_dir()
 
@@ -43,11 +46,15 @@ def add_task(
 
     story_id = f"s{next_n:02d}"
     filename = f"{story_id}-{slug}"
+
+    desc_block = f"{description}\n\n" if description else ""
     content = f"""\
-        {title}
-        {'=' * len(title)}
-        ## Props
-        Status: pending
+    {title}
+    {'=' * len(title)}
+
+    {desc_block}## Props
+
+    Status: pending
     """
     (root / f"{filename}.md").write_text(dedent(content))
 
