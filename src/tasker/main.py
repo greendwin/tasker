@@ -3,17 +3,10 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
-from jinja2 import Environment, PackageLoader
 from typer_di import TyperDI
 
+from tasker.generate import render_task_file
 from tasker.utils import console
-
-_jinja = Environment(
-    loader=PackageLoader("tasker", "templates"),
-    keep_trailing_newline=True,
-    trim_blocks=True,
-    lstrip_blocks=True,
-)
 
 app = TyperDI(
     name="tasker",
@@ -58,11 +51,7 @@ def add_task(
     story_id = f"s{next_n:02d}"
     filename = f"{story_id}-{slug}"
 
-    content = _jinja.get_template("task.md.j2").render(
-        title=title,
-        description=description,
-    )
-    (root / f"{filename}.md").write_text(content)
+    render_task_file(root / f"{filename}.md", title, description)
 
     console.print(f"[green]task [blue]{filename}[/blue] created[/green]")
 

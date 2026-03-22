@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from tasker.data import Task, TaskStatus, parse_task
+from tasker.generate import render_task_file
 
 _DIR = Path("/tasks")
 
@@ -12,11 +13,8 @@ def _write_task(
     status: str = "pending",
 ) -> Path:
     _DIR.mkdir(exist_ok=True)
-    underline = "=" * len(title)
-    desc_block = f"\n{description}\n" if description else ""
-    content = f"{title}\n{underline}\n{desc_block}\n## Props\n\nStatus: {status}\n"
     path = _DIR / name
-    path.write_text(content)
+    render_task_file(path, title, description, status)
     return path
 
 
@@ -67,9 +65,7 @@ def test_parse_detailed_dir() -> None:
     _DIR.mkdir(exist_ok=True)
     story_dir = _DIR / "s01-my-task"
     story_dir.mkdir()
-    (story_dir / "README.md").write_text(
-        "My task\n=======\n\n## Props\n\nStatus: pending\n"
-    )
+    render_task_file(story_dir / "README.md", "My task")
     task = parse_task(story_dir)
     assert task.detailed is True
     assert task.id == "s01"
@@ -84,7 +80,7 @@ def test_parse_returns_task_model() -> None:
 def test_parse_invalid_filename_raises() -> None:
     _DIR.mkdir(exist_ok=True)
     bad = _DIR / "bad-name.md"
-    bad.write_text("Title\n=====\n\n## Props\n\nStatus: pending\n")
+    render_task_file(bad, "Title")
     try:
         parse_task(bad)
         assert False, "expected ValueError"
