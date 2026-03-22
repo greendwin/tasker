@@ -52,3 +52,24 @@ def test_add_task_explicit_slug() -> None:
 def test_add_task_explicit_slug_overrides_derived() -> None:
     assert_invoke(app, ["add", "My long task title", "--slug", "custom-slug"])
     assert not Path("planning/s01-my-long-task-title.md").exists()
+
+
+def test_add_detail_creates_directory() -> None:
+    assert_invoke(app, ["add", "My task", "--detail"])
+    assert Path("planning/s01-my-task").is_dir()
+
+
+def test_add_detail_creates_readme() -> None:
+    assert_invoke(app, ["add", "My task", "--detail"])
+    assert Path("planning/s01-my-task/README.md").exists()
+
+
+def test_add_detail_readme_contains_title() -> None:
+    assert_invoke(app, ["add", "My task", "--detail"])
+    content = Path("planning/s01-my-task/README.md").read_text()
+    assert "My task" in content
+
+
+def test_add_detail_does_not_create_md_file() -> None:
+    assert_invoke(app, ["add", "My task", "--detail"])
+    assert not Path("planning/s01-my-task.md").exists()

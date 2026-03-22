@@ -37,6 +37,9 @@ def add_task(
     slug: Annotated[
         Optional[str], typer.Option("--slug", help="Override auto-derived slug.")
     ] = None,
+    detail: Annotated[
+        bool, typer.Option("--detail", help="Create task as a directory.")
+    ] = False,
 ) -> None:
     root = _get_root_dir()
 
@@ -59,10 +62,16 @@ def add_task(
         description=description,
         status=TaskStatus.PENDING,
         subtasks=[],
+        detailed=detail,
         loaded=True,
         filename=filename,
     )
-    render_task_file(root / f"{filename}.md", task)
+    if detail:
+        task_dir = root / filename
+        task_dir.mkdir()
+        render_task_file(task_dir / "README.md", task)
+    else:
+        render_task_file(root / f"{filename}.md", task)
 
     console.print(f"[green]task [blue]{filename}[/blue] created[/green]")
 
