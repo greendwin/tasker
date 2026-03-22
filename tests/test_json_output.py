@@ -138,3 +138,24 @@ def test_json_no_debug_error_no_traceback() -> None:
     result = _runner.invoke(app, ["--json-output", "add", "s99", "Task"])
     data = _parse_json(result.output)
     assert "traceback" not in data
+
+
+# --- task_ref in errors ---
+
+
+def test_json_error_contains_task_ref() -> None:
+    result = _runner.invoke(app, ["--json-output", "add", "s99", "Task"])
+    data = _parse_json(result.output)
+    assert "task_ref" in data
+
+
+def test_json_error_task_ref_is_non_empty() -> None:
+    result = _runner.invoke(app, ["--json-output", "add", "s99", "Task"])
+    data = _parse_json(result.output)
+    assert data["task_ref"]
+
+
+def test_json_error_task_ref_contains_task_id() -> None:
+    result = _runner.invoke(app, ["--json-output", "add", "s99", "Task"])
+    data = _parse_json(result.output)
+    assert "s99" in data["task_ref"]

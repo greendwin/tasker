@@ -36,6 +36,8 @@ class OutputContext:
                 raise typer.Exit(1) from ex
 
             self._obj = {"error": str(ex)}
+            if ex.task_ref is not None:
+                self._obj["task_ref"] = ex.task_ref
             if self.debug:
                 self._obj["traceback"] = traceback.format_exc()
             raise typer.Exit(1) from ex

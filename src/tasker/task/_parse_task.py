@@ -107,10 +107,14 @@ def parse_task(task: Path) -> BasicTask | ExtendedTask:
 
     m = _STEM_RE.match(stem)
     if not m:
-        raise TaskValidateError(f"Invalid task filename: {stem!r}")
+        raise TaskValidateError(f"Invalid task filename: {stem!r}", task_ref=str(task))
     slug = m.group(2)
 
-    parsed = _parse_content(content_path.read_text())
+    try:
+        parsed = _parse_content(content_path.read_text())
+    except TaskValidateError as ex:
+        ex.task_ref = str(task)
+        raise
 
     task_cls = ExtendedTask if detailed else BasicTask
     return task_cls(

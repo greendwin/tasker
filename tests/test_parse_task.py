@@ -180,3 +180,33 @@ def test_parse_raises_on_unclosed_front_matter() -> None:
     bad.write_text("---\nid: s01\nstatus: pending\n")
     with pytest.raises(TaskValidateError):
         parse_task(bad)
+
+
+# --- task_ref context on parse errors ---
+
+
+def test_parse_error_has_task_ref() -> None:
+    _DIR.mkdir(exist_ok=True)
+    bad = _DIR / "s01-my-task.md"
+    bad.write_text("---\nid: s01\nstatus: pending\n---\n\nMy task\n=======\n")
+    with pytest.raises(TaskValidateError) as exc_info:
+        parse_task(bad)
+    assert exc_info.value.task_ref is not None
+
+
+def test_parse_error_task_ref_contains_filename() -> None:
+    _DIR.mkdir(exist_ok=True)
+    bad = _DIR / "s01-my-task.md"
+    bad.write_text("---\nid: s01\nstatus: pending\n---\n\nMy task\n=======\n")
+    with pytest.raises(TaskValidateError) as exc_info:
+        parse_task(bad)
+    assert "s01-my-task" in (exc_info.value.task_ref or "")
+
+
+def test_parse_invalid_filename_error_has_task_ref() -> None:
+    _DIR.mkdir(exist_ok=True)
+    bad = _DIR / "bad-name.md"
+    bad.write_text("")
+    with pytest.raises(TaskValidateError) as exc_info:
+        parse_task(bad)
+    assert exc_info.value.task_ref is not None
