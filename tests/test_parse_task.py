@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from tasker.data import Task, TaskStatus, parse_task
+from tasker.task import Task, TaskStatus, parse_task
 from tasker.generate import render_task_file
 
 _DIR = Path("/tasks")

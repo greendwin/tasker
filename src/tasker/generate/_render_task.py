@@ -4,7 +4,7 @@ from pathlib import Path
 
 from jinja2 import Environment, PackageLoader
 
-from tasker.data import Task
+from tasker.task import Task
 
 _jinja = Environment(
     loader=PackageLoader("tasker", "templates"),
