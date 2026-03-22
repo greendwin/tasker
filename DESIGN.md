@@ -115,17 +115,21 @@ Root-level stories live directly under `planning/`. Archived tasks move to `plan
 ## Task File Format
 
 ```
+---
+id: s01t02
+status: pending
+---
+
 Title
 =====
 
 Optional description text.
 Can span multiple paragraphs.
 
-## Props
+## Depends
 
-Status: pending
-Depends:
-- s02 - must finish auth before starting this
+- ~~s02~~ - must finish auth before starting this
+- s03 - needs API design finalized first
 
 ## Subtasks
 
@@ -134,7 +138,14 @@ Depends:
 - [x] s01t03: finished subtask
 ```
 
-**`## Props`** — required `Status:`, optional `Depends:`
+**Front matter** (YAML block between `---` delimiters) — required fields:
+
+| Field | Required | Description |
+|---|---|---|
+| `id` | yes | Task ID (e.g. `s01`, `s01t02`) |
+| `status` | yes | One of `pending`, `in-progress`, `done` |
+
+**`## Depends`** — optional section listing task IDs this task depends on, one per line with an optional comment after the ID. Completed dependencies are rendered with strikethrough (~~`s02`~~) to show they no longer block progress.
 
 | Status value | Meaning |
 |---|---|
@@ -147,6 +158,14 @@ Depends:
 For the **extended** form, `README.md` lists subtasks as links:
 
 ```
+---
+id: s01
+status: in-progress
+---
+
+Title
+=====
+
 ## Subtasks
 
 - [ ] [s01t01](s01t01-define-task-forms.md): Define task forms
