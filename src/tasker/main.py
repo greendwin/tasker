@@ -1,13 +1,18 @@
-"""CLI entry point for tasker."""
-
-from typing import Annotated, Optional
+import re
+from pathlib import Path
+from textwrap import dedent
+from typing import Annotated
 
 import typer
+from typer_di import TyperDI
 
-app = typer.Typer(
+from tasker.utils import console
+
+app = TyperDI(
     name="tasker",
     help="File-based task tracker for git repos.",
     no_args_is_help=True,
+    pretty_exceptions_show_locals=False,
 )
 
 
@@ -16,15 +21,37 @@ def _callback() -> None:
     pass
 
 
-@app.command()
-def hello(
-    name: Annotated[Optional[str], typer.Argument(help="Name to greet.")] = None,
+def _get_root_dir() -> Path:
+    planning = Path("planning")
+    planning.mkdir(exist_ok=True)
+    return planning
+
+
+@app.command("add")
+def add_task(
+    title: Annotated[str, typer.Argument(help="Task title.")],
 ) -> None:
-    """Say hello."""
-    if name:
-        typer.echo(f"Hello, {name}!")
-    else:
-        typer.echo("Hello, World!")
+    root = _get_root_dir()
+
+    existing = [
+        int(m.group(1)) for p in root.iterdir() if (m := re.match(r"^s(\d+)", p.name))
+    ]
+    next_n = max(existing, default=0) + 1
+
+    words = re.sub(r"[^a-z0-9\s]", "", title.lower()).split()[:5]
+    slug = "-".join(words)
+
+    story_id = f"s{next_n:02d}"
+    filename = f"{story_id}-{slug}"
+    content = f"""\
+        {title}
+        {'=' * len(title)}
+        ## Props
+        Status: pending
+    """
+    (root / f"{filename}.md").write_text(dedent(content))
+
+    console.print(f"[green]task [blue]{filename}[/blue] created[/green]")
 
 
 def main() -> None:

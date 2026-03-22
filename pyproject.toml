@@ -26,6 +26,7 @@ mypy = ">=1.10"
 black = ">=24.0"
 isort = ">=5.13"
 flake8 = ">=7.0"
+pyfakefs = ">=6.1"
 
 [tool.mypy]
 strict = true
