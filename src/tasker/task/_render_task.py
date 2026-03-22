@@ -2,7 +2,13 @@ from pathlib import Path
 
 from jinja2 import Environment, PackageLoader
 
-from ._base_types import EXTENDED_TASK_FILENAME, BasicTask, FileTask
+from ._base_types import EXTENDED_TASK_FILENAME, BasicTask, FileTask, TaskStatus
+
+_CHECKBOX = {
+    TaskStatus.PENDING: " ",
+    TaskStatus.IN_PROGRESS: "~",
+    TaskStatus.DONE: "x",
+}
 
 _jinja = Environment(
     loader=PackageLoader("tasker", "templates"),
@@ -12,11 +18,19 @@ _jinja = Environment(
 )
 
 
+def _to_checkbox(status: TaskStatus) -> str:
+    return _CHECKBOX[status]
+
+
+_jinja.filters["checkbox"] = _to_checkbox
+
+
 def render_task(task: FileTask) -> str:
     return _jinja.get_template("task.md.j2").render(
         title=task.title,
         description=task.description,
         status=task.status.value,
+        subtasks=task.subtasks,
     )
 
 

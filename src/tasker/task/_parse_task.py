@@ -2,25 +2,46 @@ import re
 from pathlib import Path
 from typing import NamedTuple
 
-from ._base_types import EXTENDED_TASK_FILENAME, BasicTask, ExtendedTask, TaskStatus
+from ._base_types import (
+    EXTENDED_TASK_FILENAME,
+    AnyTask,
+    BasicTask,
+    ExtendedTask,
+    InlineTask,
+    TaskStatus,
+)
 
-# ID: s<digits> or s<digits>t<digits> (t appears once; each nesting level adds two digits)
+# ID: s<digits> or s<digits>t<digits> (t appears once; each level adds two digits)
 _STEM_RE = re.compile(r"^(s\d+(?:t(?:\d{2})+)?)-(.+)$")
+_SUBTASK_RE = re.compile(r"^- \[(.)\] (s\d+t(?:\d{2})+): (.+)$")
+_CHECKBOX_STATUS = {
+    " ": TaskStatus.PENDING,
+    "~": TaskStatus.IN_PROGRESS,
+    "x": TaskStatus.DONE,
+}
 
 
 class _ParsedContent(NamedTuple):
     title: str
     description: str | None
     status: TaskStatus
+    subtasks: list[AnyTask]
 
 
 def _parse_content(content: str) -> _ParsedContent:
     lines = content.splitlines()
     title = lines[0]
 
-    props_idx = lines.index("## Props")
+    section_idx: dict[str, int] = {}
+    for i, line in enumerate(lines):
+        if line.startswith("## "):
+            section_idx[line[3:]] = i
 
-    desc_lines = lines[2:props_idx]
+    props_idx = section_idx["Props"]
+    subtasks_idx = section_idx.get("Subtasks")
+
+    desc_end = subtasks_idx if subtasks_idx is not None else props_idx
+    desc_lines = lines[2:desc_end]
     while desc_lines and not desc_lines[0].strip():
         desc_lines.pop(0)
     while desc_lines and not desc_lines[-1].strip():
@@ -33,7 +54,24 @@ def _parse_content(content: str) -> _ParsedContent:
             status = TaskStatus(line.split(":", 1)[1].strip())
             break
 
-    return _ParsedContent(title=title, description=description, status=status)
+    subtasks: list[AnyTask] = []
+    if subtasks_idx is not None:
+        for line in lines[subtasks_idx + 1 : props_idx]:
+            m = _SUBTASK_RE.match(line)
+            if m:
+                checkbox, task_id, task_title = m.group(1), m.group(2), m.group(3)
+                subtasks.append(
+                    InlineTask(
+                        id=task_id,
+                        title=task_title,
+                        status=_CHECKBOX_STATUS.get(checkbox, TaskStatus.PENDING),
+                        parent=None,
+                    )
+                )
+
+    return _ParsedContent(
+        title=title, description=description, status=status, subtasks=subtasks
+    )
 
 
 def parse_task(task: Path) -> BasicTask | ExtendedTask:
@@ -56,5 +94,5 @@ def parse_task(task: Path) -> BasicTask | ExtendedTask:
         title=parsed.title,
         description=parsed.description,
         status=parsed.status,
-        subtasks=[],
+        subtasks=parsed.subtasks,
     )

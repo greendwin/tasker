@@ -4,6 +4,14 @@
 
 {{ description }}
 {% endif %}
+{% if subtasks %}
+
+## Subtasks
+
+{% for subtask in subtasks %}
+- [{{ subtask.status | checkbox }}] {{ subtask.id }}: {{ subtask.title }}
+{% endfor %}
+{% endif %}
 
 ## Props
 

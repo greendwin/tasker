@@ -3,9 +3,9 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
-from typer_di import TyperDI
+from typer_di import Depends, TyperDI
 
-from tasker.task import BasicTask, ExtendedTask, TaskStatus, render_task_file
+from tasker.methods import TaskerConfig, add_subtask, create_new_story, ref_to_task_id
 from tasker.utils import console
 
 app = TyperDI(
@@ -21,14 +21,15 @@ def _callback() -> None:
     pass
 
 
-def _get_root_dir() -> Path:
+def get_config() -> TaskerConfig:
     planning = Path("planning")
     planning.mkdir(exist_ok=True)
-    return planning
+    return TaskerConfig(root_dir=planning)
 
 
 @app.command("new")
 def new_task(
+    *,
     title: Annotated[str, typer.Argument(help="Task title.")],
     details: Annotated[
         Optional[str], typer.Option("--details", "-d", help="Task description.")
@@ -39,36 +40,33 @@ def new_task(
     extended: Annotated[
         bool, typer.Option("--extended", help="Create task as a directory.")
     ] = False,
+    config: TaskerConfig = Depends(get_config),
 ) -> None:
-    root = _get_root_dir()
-
-    existing = [
-        int(m.group(1)) for p in root.iterdir() if (m := re.match(r"^s(\d+)", p.name))
-    ]
-    next_n = max(existing, default=0) + 1
-
-    if slug is None:
-        words = re.sub(r"[^a-z0-9\s]", "", title.lower()).split()[:5]
-        slug = "-".join(words)
-
-    story_id = f"s{next_n:02d}"
-    filename = f"{story_id}-{slug}"
-
-    task_type = ExtendedTask if extended else BasicTask
-
-    task = task_type(
-        parent=None,
-        id=story_id,
-        slug=slug,
-        title=title,
-        description=details or "",
-        status=TaskStatus.PENDING,
-        subtasks=[],
+    task_id = create_new_story(
+        config, title=title, description=details, slug=slug, extended=extended
     )
 
-    render_task_file(root, task)
+    console.print(f"[green]task [blue]{task_id}[/blue] created[/green]")
 
-    console.print(f"[green]task [blue]{filename}[/blue] created[/green]")
+
+@app.command("add")
+def add_task(
+    *,
+    parent_ref: Annotated[str, typer.Argument(help="Parent task ID.")],
+    title: Annotated[str, typer.Argument(help="Subtask title.")],
+    config: TaskerConfig = Depends(get_config),
+) -> None:
+    task_id = ref_to_task_id(parent_ref)
+
+    child_id = add_subtask(
+        config,
+        task_id=task_id,
+        title=title,
+    )
+
+    console.print(
+        f"[green]task [blue]{child_id}[/blue] added to [blue]{task_id}[/blue][/green]"
+    )
 
 
 def main() -> None:

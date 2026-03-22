@@ -1,6 +1,13 @@
 from pathlib import Path
 
-from tasker.task import BasicTask, ExtendedTask, FileTask, TaskStatus, parse_task, render_task_file
+from tasker.task import (
+    BasicTask,
+    ExtendedTask,
+    FileTask,
+    TaskStatus,
+    parse_task,
+    render_task_file,
+)
 
 _DIR = Path("/tmp/tasks")
 
