@@ -1,4 +1,5 @@
 __all__ = [
+    "EXTENDED_TASK_FILENAME",
     "AnyTask",
     "BasicTask",
     "ExtendedTask",
@@ -11,6 +12,7 @@ __all__ = [
 ]
 
 from ._base_types import (
+    EXTENDED_TASK_FILENAME,
     AnyTask,
     BasicTask,
     ExtendedTask,

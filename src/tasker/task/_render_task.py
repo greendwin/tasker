@@ -2,9 +2,7 @@ from pathlib import Path
 
 from jinja2 import Environment, PackageLoader
 
-from ._base_types import BasicTask, FileTask
-
-README_MD = "README.md"
+from ._base_types import EXTENDED_TASK_FILENAME, BasicTask, FileTask
 
 _jinja = Environment(
     loader=PackageLoader("tasker", "templates"),
@@ -29,7 +27,7 @@ def render_task_file(root: Path, task: FileTask) -> None:
     if isinstance(task, BasicTask):
         path = root / f"{task.id}-{task.slug}.md"
     else:
-        path = root / f"{task.id}-{task.slug}" / README_MD
-    
+        path = root / f"{task.id}-{task.slug}" / EXTENDED_TASK_FILENAME
+
     path.parent.mkdir(exist_ok=True)
     path.write_text(render_task(task))

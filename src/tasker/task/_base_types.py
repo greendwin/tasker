@@ -5,6 +5,8 @@ from typing import Literal, TypeAlias
 
 from pydantic import BaseModel
 
+EXTENDED_TASK_FILENAME = "README.md"
+
 
 class TaskStatus(str, Enum):
     PENDING = "pending"

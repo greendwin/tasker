@@ -1,12 +1,20 @@
 import re
 from pathlib import Path
+from typing import NamedTuple
 
-from ._base_types import BasicTask, ExtendedTask, TaskStatus
+from ._base_types import EXTENDED_TASK_FILENAME, BasicTask, ExtendedTask, TaskStatus
 
-_STEM_RE = re.compile(r"^(s\d+(?:t\d+)?)-(.+)$")
+# ID: s<digits> or s<digits>t<digits> (t appears once; each nesting level adds two digits)
+_STEM_RE = re.compile(r"^(s\d+(?:t(?:\d{2})+)?)-(.+)$")
 
 
-def _parse_content(content: str) -> tuple[str, str | None, TaskStatus]:
+class _ParsedContent(NamedTuple):
+    title: str
+    description: str | None
+    status: TaskStatus
+
+
+def _parse_content(content: str) -> _ParsedContent:
     lines = content.splitlines()
     title = lines[0]
 
@@ -25,12 +33,12 @@ def _parse_content(content: str) -> tuple[str, str | None, TaskStatus]:
             status = TaskStatus(line.split(":", 1)[1].strip())
             break
 
-    return title, description, status
+    return _ParsedContent(title=title, description=description, status=status)
 
 
 def parse_task(task: Path) -> BasicTask | ExtendedTask:
     detailed = task.is_dir()
-    content_path = task / "README.md" if detailed else task
+    content_path = task / EXTENDED_TASK_FILENAME if detailed else task
     stem = task.name if detailed else task.stem
 
     m = _STEM_RE.match(stem)
@@ -38,15 +46,15 @@ def parse_task(task: Path) -> BasicTask | ExtendedTask:
         raise ValueError(f"Invalid task filename: {stem!r}")
     task_id, slug = m.group(1), m.group(2)
 
-    title, description, status = _parse_content(content_path.read_text())
+    parsed = _parse_content(content_path.read_text())
 
     task_cls = ExtendedTask if detailed else BasicTask
     return task_cls(
         parent=None,
         id=task_id,
         slug=slug,
-        title=title,
-        description=description,
-        status=status,
+        title=parsed.title,
+        description=parsed.description,
+        status=parsed.status,
         subtasks=[],
     )
