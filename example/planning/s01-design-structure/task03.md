@@ -1,5 +1,10 @@
+---
+id: s01t03
+status: pending
+---
+
 Create skills that teaches Claude to use `tasker`
-=================================================
+==================================================
 
 Require skill for basic operations
 

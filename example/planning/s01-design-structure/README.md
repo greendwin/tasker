@@ -1,3 +1,8 @@
+---
+id: s01
+status: in-progress
+---
+
 Design Structure
 ================
 

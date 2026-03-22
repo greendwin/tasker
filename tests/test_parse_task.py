@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from tasker._exceptions import TaskValidateError
 from tasker.task import (
     BasicTask,
     ExtendedTask,
@@ -113,6 +114,56 @@ def test_parse_invalid_filename_raises() -> None:
     bad.write_text("Title\n=====\n\n## Props\n\nStatus: pending\n")
     try:
         parse_task(bad)
-        assert False, "expected ValueError"
-    except ValueError:
+        assert False, "expected TaskValidateError"
+    except TaskValidateError:
+        pass
+
+
+# --- front-matter format tests ---
+
+
+def test_file_has_front_matter_delimiters() -> None:
+    path = _write_task("s01-my-task.md", "My task")
+    content = path.read_text()
+    assert content.startswith("---\n")
+    assert "---\n" in content[4:]  # closing delimiter
+
+
+def test_file_front_matter_has_id() -> None:
+    path = _write_task("s01-my-task.md", "My task")
+    content = path.read_text()
+    assert "id: s01" in content
+
+
+def test_file_front_matter_has_status() -> None:
+    path = _write_task("s01-my-task.md", "My task")
+    content = path.read_text()
+    assert "status: pending" in content
+
+
+def test_file_has_no_props_section() -> None:
+    path = _write_task("s01-my-task.md", "My task")
+    content = path.read_text()
+    assert "## Props" not in content
+
+
+def test_parse_raises_on_missing_front_matter() -> None:
+    _DIR.mkdir(exist_ok=True)
+    bad = _DIR / "s01-my-task.md"
+    bad.write_text("My task\n=======\n\nStatus: pending\n")
+    try:
+        parse_task(bad)
+        assert False, "expected TaskValidateError"
+    except TaskValidateError:
+        pass
+
+
+def test_parse_raises_on_unclosed_front_matter() -> None:
+    _DIR.mkdir(exist_ok=True)
+    bad = _DIR / "s01-my-task.md"
+    bad.write_text("---\nid: s01\nstatus: pending\n")
+    try:
+        parse_task(bad)
+        assert False, "expected TaskValidateError"
+    except TaskValidateError:
         pass

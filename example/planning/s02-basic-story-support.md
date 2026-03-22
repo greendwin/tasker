@@ -1,12 +1,15 @@
+---
+id: s02
+status: pending
+---
+
 Basic Story Support
 ===================
 
 Support recursively tasks creation
 
-## Props
+## Depends
 
-Status: pending
-Depends:
 - s02t02t03 - other task id we dependent to with the reasoning why
 
 ## Tasks

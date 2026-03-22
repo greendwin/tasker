@@ -27,6 +27,7 @@ _jinja.filters["checkbox"] = _to_checkbox
 
 def render_task(task: FileTask) -> str:
     return _jinja.get_template("task.md.j2").render(
+        id=task.id,
         title=task.title,
         description=task.description,
         status=task.status.value,

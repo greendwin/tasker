@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 from typing import NamedTuple
 
+from .._exceptions import TaskValidateError
 from ._base_types import (
     EXTENDED_TASK_FILENAME,
     AnyTask,
@@ -22,6 +23,7 @@ _CHECKBOX_STATUS = {
 
 
 class _ParsedContent(NamedTuple):
+    id: str
     title: str
     description: str | None
     status: TaskStatus
@@ -30,33 +32,52 @@ class _ParsedContent(NamedTuple):
 
 def _parse_content(content: str) -> _ParsedContent:
     lines = content.splitlines()
-    title = lines[0]
 
-    section_idx: dict[str, int] = {}
-    for i, line in enumerate(lines):
-        if line.startswith("## "):
-            section_idx[line[3:]] = i
+    if not lines or lines[0] != "---":
+        raise TaskValidateError("Missing front-matter: file must start with '---'")
 
-    props_idx = section_idx["Props"]
-    subtasks_idx = section_idx.get("Subtasks")
+    try:
+        fm_end = lines.index("---", 1)
+    except ValueError:
+        raise TaskValidateError("Unclosed front-matter: missing closing '---'")
 
-    desc_end = subtasks_idx if subtasks_idx is not None else props_idx
-    desc_lines = lines[2:desc_end]
+    id_val = ""
+    status = TaskStatus.PENDING
+    for line in lines[1:fm_end]:
+        if line.startswith("id:"):
+            id_val = line.split(":", 1)[1].strip()
+        elif line.startswith("status:"):
+            status = TaskStatus(line.split(":", 1)[1].strip())
+
+    # Body: everything after the closing ---
+    body = lines[fm_end + 1 :]
+    while body and not body[0].strip():
+        body.pop(0)
+
+    if not body:
+        raise TaskValidateError("Missing title after front-matter")
+
+    title = body[0]
+    # body[1] is the underline (=====)
+
+    # Find ## Subtasks section in body[2:]
+    subtasks_idx: int | None = None
+    for i, line in enumerate(body[2:], 2):
+        if line == "## Subtasks":
+            subtasks_idx = i
+            break
+
+    desc_end = subtasks_idx if subtasks_idx is not None else len(body)
+    desc_lines = body[2:desc_end]
     while desc_lines and not desc_lines[0].strip():
         desc_lines.pop(0)
     while desc_lines and not desc_lines[-1].strip():
         desc_lines.pop()
     description = "\n".join(desc_lines) or None
 
-    status = TaskStatus.PENDING
-    for line in lines[props_idx + 1 :]:
-        if line.startswith("Status:"):
-            status = TaskStatus(line.split(":", 1)[1].strip())
-            break
-
     subtasks: list[AnyTask] = []
     if subtasks_idx is not None:
-        for line in lines[subtasks_idx + 1 : props_idx]:
+        for line in body[subtasks_idx + 1 :]:
             m = _SUBTASK_RE.match(line)
             if m:
                 checkbox, task_id, task_title = m.group(1), m.group(2), m.group(3)
@@ -70,7 +91,11 @@ def _parse_content(content: str) -> _ParsedContent:
                 )
 
     return _ParsedContent(
-        title=title, description=description, status=status, subtasks=subtasks
+        id=id_val,
+        title=title,
+        description=description,
+        status=status,
+        subtasks=subtasks,
     )
 
 
@@ -81,15 +106,15 @@ def parse_task(task: Path) -> BasicTask | ExtendedTask:
 
     m = _STEM_RE.match(stem)
     if not m:
-        raise ValueError(f"Invalid task filename: {stem!r}")
-    task_id, slug = m.group(1), m.group(2)
+        raise TaskValidateError(f"Invalid task filename: {stem!r}")
+    slug = m.group(2)
 
     parsed = _parse_content(content_path.read_text())
 
     task_cls = ExtendedTask if detailed else BasicTask
     return task_cls(
         parent=None,
-        id=task_id,
+        id=parsed.id,
         slug=slug,
         title=parsed.title,
         description=parsed.description,

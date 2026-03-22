@@ -28,7 +28,7 @@ def test_add_task_file_contains_title() -> None:
 def test_add_task_file_contains_pending_status() -> None:
     assert_invoke(app, ["new", "My important task"])
     content = Path("planning/s01-my-important-task.md").read_text()
-    assert "Status: pending" in content
+    assert "status: pending" in content
 
 
 def test_add_task_with_description() -> None:

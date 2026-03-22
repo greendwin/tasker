@@ -1,3 +1,8 @@
+---
+id: {{ id }}
+status: {{ status }}
+---
+
 {{ title }}
 {{ '=' * (title | length) }}
 {% if description %}
@@ -12,7 +17,3 @@
 - [{{ subtask.status | checkbox }}] {{ subtask.id }}: {{ subtask.title }}
 {% endfor %}
 {% endif %}
-
-## Props
-
-Status: {{ status }}

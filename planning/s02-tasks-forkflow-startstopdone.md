@@ -1,3 +1,8 @@
+---
+id: s02
+status: pending
+---
+
 Tasks forkflow start-stop-done
 ==============================
 
@@ -8,7 +13,3 @@ Tasks forkflow start-stop-done
 - [ ] s02t03: add 'stop' command
 - [ ] s02t04: update bullet list tasks status
 - [ ] s02t05: update parent task status automatically
-
-## Props
-
-Status: pending
