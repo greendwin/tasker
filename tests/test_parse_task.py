@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from tasker.task import Task, TaskStatus, parse_task
 from tasker.generate import render_task_file
+from tasker.task import Task, TaskStatus, parse_task
 
-_DIR = Path("/tasks")
+_DIR = Path("/tmp/tasks")
 
 
 def _write_task(
@@ -48,7 +48,9 @@ def test_parse_status_pending() -> None:
 
 
 def test_parse_status_in_progress() -> None:
-    task = parse_task(_write_task("s01-my-task.md", "My task", status=TaskStatus.IN_PROGRESS))
+    task = parse_task(
+        _write_task("s01-my-task.md", "My task", status=TaskStatus.IN_PROGRESS)
+    )
     assert task.status == TaskStatus.IN_PROGRESS
 
 
@@ -58,7 +60,9 @@ def test_parse_no_description() -> None:
 
 
 def test_parse_description() -> None:
-    task = parse_task(_write_task("s01-my-task.md", "My task", description="Some details"))
+    task = parse_task(
+        _write_task("s01-my-task.md", "My task", description="Some details")
+    )
     assert task.description == "Some details"
 
 
@@ -80,7 +84,15 @@ def test_parse_detailed_dir() -> None:
     story_dir.mkdir()
     render_task_file(
         story_dir / "README.md",
-        Task(id="s01", slug="my-task", title="My task", status=TaskStatus.PENDING, subtasks=[], loaded=True, filename="s01-my-task"),
+        Task(
+            id="s01",
+            slug="my-task",
+            title="My task",
+            status=TaskStatus.PENDING,
+            subtasks=[],
+            loaded=True,
+            filename="s01-my-task",
+        ),
     )
     task = parse_task(story_dir)
     assert task.detailed is True
@@ -98,7 +110,15 @@ def test_parse_invalid_filename_raises() -> None:
     bad = _DIR / "bad-name.md"
     render_task_file(
         bad,
-        Task(id="bad", slug="name", title="Title", status=TaskStatus.PENDING, subtasks=[], loaded=True, filename="bad-name"),
+        Task(
+            id="bad",
+            slug="name",
+            title="Title",
+            status=TaskStatus.PENDING,
+            subtasks=[],
+            loaded=True,
+            filename="bad-name",
+        ),
     )
     try:
         parse_task(bad)

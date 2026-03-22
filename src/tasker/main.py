@@ -5,8 +5,8 @@ from typing import Annotated, Optional
 import typer
 from typer_di import TyperDI
 
-from tasker.task import Task, TaskStatus
 from tasker.generate import render_task_file
+from tasker.task import Task, TaskStatus
 from tasker.utils import console
 
 app = TyperDI(

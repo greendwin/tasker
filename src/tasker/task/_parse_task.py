@@ -1,5 +1,3 @@
-__all__ = ["parse_task"]
-
 import re
 from pathlib import Path
 
