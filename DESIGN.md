@@ -16,13 +16,15 @@ Everything is a **task**. Tasks are recursive — any task can have subtasks at 
 
 | Form | Structure | When to use |
 |---|---|---|
-| Simple | `sNN-short-name.md` | Leaf task, no children needed |
-| Simple with subtasks | `sNN-short-name.md` with `## Subtasks` section | Inline bullet subtasks |
+| Inline | ID + title in parent's `## Subtasks` bullet list | Leaf task, no description needed |
+| Basic | `sNN-short-name.md` | Task needing description or inline subtasks |
 | Extended | `sNN-short-name/README.md` + child files … | Subtasks that each need their own file |
 
+All tasks have an ID regardless of form. A slug (and therefore a filename) is only needed when a task has its own file (basic or extended form).
+
 Tasks **auto-upgrade** when structure requires it:
-- Adding inline subtasks → simple with subtasks
-- Adding a subtask with `--details` → extended form (dir is created, existing file becomes `README.md`)
+- Promoting an inline task to have a description → basic form (file created)
+- Adding a subtask with `--details` to a basic task → extended form (dir is created, existing file becomes `README.md`)
 
 ---
 
@@ -51,14 +53,14 @@ Rules:
 
 ## Filename Format
 
-Every file includes a short summary slug appended to the ID:
+Files with their own file (basic or extended) include a short summary slug appended to the ID:
 
 ```
 s01-design-file-structure.md
-s01-design-file-structure/        ← detailed form (dir)
+s01-design-file-structure/        ← extended form (dir)
   README.md
   s01t01-define-task-forms.md
-  s01t01-define-task-forms/       ← nested detailed form
+  s01t01-define-task-forms/       ← nested extended form
     README.md
     s01t0101-first-subtask.md
     s01t0102-second-subtask.md
@@ -66,6 +68,8 @@ s01-design-file-structure/        ← detailed form (dir)
 ```
 
 **Rules:**
+- Slug is only required for basic and extended tasks (those with their own file)
+- Inline tasks have an ID but no slug and no file
 - Slug is kebab-cased, max 5 words
 - Derived automatically from the task title, or set explicitly via `--slug`
 - The slug is cosmetic — tasks are always addressed by ID alone (`s01`, `s01t02`, `s01t0102`)
@@ -77,14 +81,14 @@ s01-design-file-structure/        ← detailed form (dir)
 
 ## File Structure
 
-### Simple task
+### Basic task
 
 ```
 planning/
   s01-design-file-structure.md
 ```
 
-### Simple task with subtasks
+### Basic task with inline subtasks
 
 ```
 planning/
@@ -97,7 +101,7 @@ planning/
 planning/
   s01-design-file-structure/
     README.md                     ← task description + list of subtask links
-    s01t01-define-task-forms.md   ← simple subtask
+    s01t01-define-task-forms.md   ← basic subtask
     s01t02-write-cli-spec/        ← extended subtask
       README.md
       s01t0201-draft-commands.md
@@ -125,9 +129,9 @@ Depends:
 
 ## Subtasks
 
-- [ ] pending subtask
-- [~] in-progress subtask
-- [x] finished subtask
+- [ ] s01t01: pending subtask
+- [~] s01t02: in-progress subtask
+- [x] s01t03: finished subtask
 ```
 
 **`## Props`** — required `Status:`, optional `Depends:`
@@ -138,7 +142,7 @@ Depends:
 | `in-progress` | being worked on |
 | `done` | finished |
 
-**`## Subtasks`** — present in the "simple with subtasks" form only. Each line is a checkbox entry.
+**`## Subtasks`** — present in the basic form when it has inline subtasks. Each line is a checkbox entry with the subtask ID and title.
 
 For the **extended** form, `README.md` lists subtasks as links:
 
@@ -236,9 +240,9 @@ tasker new "Design file structure"
 tasker new "Design file structure" --details "Define how tasks are stored on disk"
 # → planning/s01-design-file-structure.md  (description included)
 
-# Add a simple inline subtask
+# Add an inline subtask (no file created, gets an ID in ## Subtasks list)
 tasker add s01 "Define task forms"
-# → inline subtask in planning/s01-design-file-structure.md ## Subtasks
+# → - [ ] s01t01: Define task forms  (in planning/s01-design-file-structure.md ## Subtasks)
 
 # Add a subtask with details — auto-upgrades parent to extended form
 tasker add s01 "Write CLI spec" --details "Cover all commands and options"
