@@ -1,12 +1,19 @@
 import re
 from pathlib import Path
-from textwrap import dedent
 from typing import Annotated, Optional
 
 import typer
+from jinja2 import Environment, PackageLoader
 from typer_di import TyperDI
 
 from tasker.utils import console
+
+_jinja = Environment(
+    loader=PackageLoader("tasker", "templates"),
+    keep_trailing_newline=True,
+    trim_blocks=True,
+    lstrip_blocks=True,
+)
 
 app = TyperDI(
     name="tasker",
@@ -51,16 +58,11 @@ def add_task(
     story_id = f"s{next_n:02d}"
     filename = f"{story_id}-{slug}"
 
-    desc_block = f"{description}\n\n" if description else ""
-    content = f"""\
-    {title}
-    {'=' * len(title)}
-
-    {desc_block}## Props
-
-    Status: pending
-    """
-    (root / f"{filename}.md").write_text(dedent(content))
+    content = _jinja.get_template("task.md.j2").render(
+        title=title,
+        description=description,
+    )
+    (root / f"{filename}.md").write_text(content)
 
     console.print(f"[green]task [blue]{filename}[/blue] created[/green]")
 
