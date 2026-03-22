@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from tasker._exceptions import TaskValidateError
 from tasker.task import (
     BasicTask,
@@ -112,11 +114,8 @@ def test_parse_invalid_filename_raises() -> None:
     _DIR.mkdir(exist_ok=True)
     bad = _DIR / "bad-name.md"
     bad.write_text("Title\n=====\n\n## Props\n\nStatus: pending\n")
-    try:
+    with pytest.raises(TaskValidateError):
         parse_task(bad)
-        assert False, "expected TaskValidateError"
-    except TaskValidateError:
-        pass
 
 
 # --- front-matter format tests ---
@@ -163,30 +162,21 @@ def test_parse_raises_on_non_heading_title() -> None:
     _DIR.mkdir(exist_ok=True)
     bad = _DIR / "s01-my-task.md"
     bad.write_text("---\nid: s01\nstatus: pending\n---\n\nMy task\n=======\n")
-    try:
+    with pytest.raises(TaskValidateError):
         parse_task(bad)
-        assert False, "expected TaskValidateError"
-    except TaskValidateError:
-        pass
 
 
 def test_parse_raises_on_missing_front_matter() -> None:
     _DIR.mkdir(exist_ok=True)
     bad = _DIR / "s01-my-task.md"
     bad.write_text("My task\n=======\n\nStatus: pending\n")
-    try:
+    with pytest.raises(TaskValidateError):
         parse_task(bad)
-        assert False, "expected TaskValidateError"
-    except TaskValidateError:
-        pass
 
 
 def test_parse_raises_on_unclosed_front_matter() -> None:
     _DIR.mkdir(exist_ok=True)
     bad = _DIR / "s01-my-task.md"
     bad.write_text("---\nid: s01\nstatus: pending\n")
-    try:
+    with pytest.raises(TaskValidateError):
         parse_task(bad)
-        assert False, "expected TaskValidateError"
-    except TaskValidateError:
-        pass

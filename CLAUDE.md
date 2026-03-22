@@ -28,7 +28,8 @@ poetry run mypy src tests
 
 ## Development
 
-On any development iteration, the final step is to run `poetry run tox` (all environments). Always fix **all** reported issues.
+* On any development iteration, the final step is to run `poetry run tox` (all environments). Always fix **all** reported issues.
+* Never use `type: ignore` if it can be fixed normally.
 
 ## Architecture
 
