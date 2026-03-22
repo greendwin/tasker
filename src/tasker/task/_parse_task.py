@@ -57,18 +57,19 @@ def _parse_content(content: str) -> _ParsedContent:
     if not body:
         raise TaskValidateError("Missing title after front-matter")
 
-    title = body[0]
-    # body[1] is the underline (=====)
+    if not body[0].startswith("# "):
+        raise TaskValidateError("Title must be a '# Heading' line")
+    title = body[0][2:]
 
-    # Find ## Subtasks section in body[2:]
+    # Find ## Subtasks section in body[1:]
     subtasks_idx: int | None = None
-    for i, line in enumerate(body[2:], 2):
+    for i, line in enumerate(body[1:], 1):
         if line == "## Subtasks":
             subtasks_idx = i
             break
 
     desc_end = subtasks_idx if subtasks_idx is not None else len(body)
-    desc_lines = body[2:desc_end]
+    desc_lines = body[1:desc_end]
     while desc_lines and not desc_lines[0].strip():
         desc_lines.pop(0)
     while desc_lines and not desc_lines[-1].strip():

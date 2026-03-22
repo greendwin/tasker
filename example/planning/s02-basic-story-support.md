@@ -3,8 +3,7 @@ id: s02
 status: pending
 ---
 
-Basic Story Support
-===================
+# Basic Story Support
 
 Support recursively tasks creation
 

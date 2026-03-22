@@ -3,8 +3,7 @@ id: s01
 status: in-progress
 ---
 
-Design Structure
-================
+# Design Structure
 
 Design tasks structure
 

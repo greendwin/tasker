@@ -120,8 +120,7 @@ id: s01t02
 status: pending
 ---
 
-Title
-=====
+# Title
 
 Optional description text.
 Can span multiple paragraphs.
@@ -163,8 +162,7 @@ id: s01
 status: in-progress
 ---
 
-Title
-=====
+# Title
 
 ## Subtasks
 

@@ -147,6 +147,29 @@ def test_file_has_no_props_section() -> None:
     assert "## Props" not in content
 
 
+def test_file_title_uses_atx_heading() -> None:
+    path = _write_task("s01-my-task.md", "My task")
+    content = path.read_text()
+    assert "# My task" in content
+
+
+def test_file_title_has_no_underline() -> None:
+    path = _write_task("s01-my-task.md", "My task")
+    content = path.read_text()
+    assert "=======" not in content
+
+
+def test_parse_raises_on_non_heading_title() -> None:
+    _DIR.mkdir(exist_ok=True)
+    bad = _DIR / "s01-my-task.md"
+    bad.write_text("---\nid: s01\nstatus: pending\n---\n\nMy task\n=======\n")
+    try:
+        parse_task(bad)
+        assert False, "expected TaskValidateError"
+    except TaskValidateError:
+        pass
+
+
 def test_parse_raises_on_missing_front_matter() -> None:
     _DIR.mkdir(exist_ok=True)
     bad = _DIR / "s01-my-task.md"
