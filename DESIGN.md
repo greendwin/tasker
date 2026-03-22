@@ -168,26 +168,19 @@ For the **extended** form, `README.md` lists subtasks as links:
 
 ```bash
 # Add a root-level story (slug auto-derived from title)
-tasker add <title>
+tasker new <title>
 
-# Add a root-level story with explicit slug
-tasker add <title> --slug <slug>
+# Add a root-level story with explicit slug and description
+tasker new <title> --slug <slug> --details <description>
 
-# Add a simple subtask under any parent
+# Add a simple inline subtask under any parent
 tasker add <parent-id> <title>
 
-# Add a detailed subtask (auto-upgrades parent to detailed form if needed)
-tasker add <parent-id> <title> --detail
+# Add a subtask with details — auto-upgrades parent to extended form
+tasker add <parent-id> <title> --details <description>
 
 # Add with explicit slug (e.g. when created by AI)
-tasker add <parent-id> <title> --detail --slug <slug>
-```
-
-### Upgrade task form
-
-```bash
-# Promote a simple task to extended form (creates dir, existing file becomes README.md)
-tasker upgrade <task-id>
+tasker add <parent-id> <title> --details <description> --slug <slug>
 ```
 
 ### Update task status
@@ -235,26 +228,30 @@ Only root stories can be archived. Archiving a non-root task is an error.
 ## Examples
 
 ```bash
-# Create a story — slug auto-derived as "design-file-structure"
-tasker add "Design file structure"
+# Create a root story
+tasker new "Design file structure"
 # → planning/s01-design-file-structure.md  (Status: pending)
 
-# Add a simple subtask (inline bullet)
+# Create with description
+tasker new "Design file structure" --details "Define how tasks are stored on disk"
+# → planning/s01-design-file-structure.md  (description included)
+
+# Add a simple inline subtask
 tasker add s01 "Define task forms"
 # → inline subtask in planning/s01-design-file-structure.md ## Subtasks
 
-# Add a detailed subtask (auto-upgrades parent to dir form)
-tasker add s01 "Write CLI spec" --detail
-# → planning/s01-design-file-structure/README.md
+# Add a subtask with details — auto-upgrades parent to extended form
+tasker add s01 "Write CLI spec" --details "Cover all commands and options"
+# → planning/s01-design-file-structure/README.md  (parent upgraded)
 # → planning/s01-design-file-structure/s01t02-write-cli-spec.md
 
 # Add a subtask under a subtask — two digits appended
-tasker add s01t02 "Draft commands" --detail
-# → planning/s01-design-file-structure/s01t02-write-cli-spec/README.md
+tasker add s01t02 "Draft commands" --details "List every command with args"
+# → planning/s01-design-file-structure/s01t02-write-cli-spec/README.md  (parent upgraded)
 # → planning/s01-design-file-structure/s01t02-write-cli-spec/s01t0201-draft-commands.md
 
 # AI-created task with explicit slug
-tasker add s01 "Implement command parsing" --slug "impl-cmd-parsing" --detail
+tasker add s01 "Implement command parsing" --details "..." --slug "impl-cmd-parsing"
 # → planning/s01-design-file-structure/s01t03-impl-cmd-parsing.md
 
 # Reference by ID or full name — both work
