@@ -18,11 +18,11 @@ Everything is a **task**. Tasks are recursive — any task can have subtasks at 
 |---|---|---|
 | Simple | `sNN-short-name.md` | Leaf task, no children needed |
 | Simple with subtasks | `sNN-short-name.md` with `## Subtasks` section | Inline bullet subtasks |
-| Detailed | `sNN-short-name/README.md` + child files … | Subtasks that each need their own description |
+| Extended | `sNN-short-name/README.md` + child files … | Subtasks that each need their own file |
 
 Tasks **auto-upgrade** when structure requires it:
 - Adding inline subtasks → simple with subtasks
-- Adding a detailed subtask → detailed form (dir is created, existing file becomes `README.md`)
+- Adding a subtask with `--details` → extended form (dir is created, existing file becomes `README.md`)
 
 ---
 
@@ -91,14 +91,14 @@ planning/
   s01-design-file-structure.md    ← contains ## Subtasks bullet list
 ```
 
-### Detailed task (recursive)
+### Extended task (recursive)
 
 ```
 planning/
   s01-design-file-structure/
     README.md                     ← task description + list of subtask links
     s01t01-define-task-forms.md   ← simple subtask
-    s01t02-write-cli-spec/        ← detailed subtask
+    s01t02-write-cli-spec/        ← extended subtask
       README.md
       s01t0201-draft-commands.md
       s01t0202-write-tests.md
@@ -140,7 +140,7 @@ Depends:
 
 **`## Subtasks`** — present in the "simple with subtasks" form only. Each line is a checkbox entry.
 
-For the **detailed** form, `README.md` lists subtasks as links:
+For the **extended** form, `README.md` lists subtasks as links:
 
 ```
 ## Subtasks
@@ -186,7 +186,7 @@ tasker add <parent-id> <title> --detail --slug <slug>
 ### Upgrade task form
 
 ```bash
-# Promote a simple task to detailed form (creates dir, existing file becomes README.md)
+# Promote a simple task to extended form (creates dir, existing file becomes README.md)
 tasker upgrade <task-id>
 ```
 
