@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from tasker.base_types import BasicTask, ExtendedTask, FileTask, TaskStatus
+from tasker.base_types import BasicTask, ExtendedTask, FileTaskBase, TaskStatus
 from tasker.exceptions import TaskValidateError
 from tasker.parse import parse_task_file
 from tasker.render import render_task, write_task_file
@@ -99,7 +99,7 @@ def test_parse_detailed_dir() -> None:
 
 def test_parse_returns_file_task() -> None:
     task = parse_task_file(_write_task("s01-my-task.md", "My task"))
-    assert isinstance(task, FileTask)
+    assert isinstance(task, FileTaskBase)
 
 
 def test_parse_invalid_filename_raises() -> None:

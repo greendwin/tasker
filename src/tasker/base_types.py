@@ -20,7 +20,7 @@ class TaskKind(str, Enum):
     EXTENDED = "extended"
 
 
-class _TaskBase(BaseModel):
+class TaskBase(BaseModel):
     # any task has these fields
     id: str  # unique id that can be used to reference a task
     title: str  # short summary of a task
@@ -28,7 +28,7 @@ class _TaskBase(BaseModel):
     parent: AnyTask | None
 
 
-class _FileTaskBase(_TaskBase):
+class FileTaskBase(TaskBase):
     slug: str
 
     # task data
@@ -36,17 +36,16 @@ class _FileTaskBase(_TaskBase):
     subtasks: list[AnyTask]
 
 
-class InlineTask(_TaskBase):
+class InlineTask(TaskBase):
     kind: Literal[TaskKind.INLINE] = TaskKind.INLINE
 
 
-class BasicTask(_FileTaskBase):
+class BasicTask(FileTaskBase):
     kind: Literal[TaskKind.BASIC] = TaskKind.BASIC
 
 
-class ExtendedTask(_FileTaskBase):
+class ExtendedTask(FileTaskBase):
     kind: Literal[TaskKind.EXTENDED] = TaskKind.EXTENDED
 
 
-FileTask: TypeAlias = BasicTask | ExtendedTask
 AnyTask: TypeAlias = InlineTask | BasicTask | ExtendedTask

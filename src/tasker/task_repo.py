@@ -1,14 +1,7 @@
 import re
 from pathlib import Path
 
-from tasker.base_types import (
-    AnyTask,
-    BasicTask,
-    ExtendedTask,
-    FileTask,
-    InlineTask,
-    TaskStatus,
-)
+from tasker.base_types import AnyTask, BasicTask, ExtendedTask, InlineTask, TaskStatus
 from tasker.exceptions import TaskerError
 from tasker.parse import detect_task_type, parse_task, parse_task_ref
 from tasker.render import render_task, write_task_file
@@ -30,7 +23,7 @@ def _derive_parent_status(subtasks: list[AnyTask]) -> TaskStatus:
 class TaskRepo:
     def __init__(self, root: Path) -> None:
         self.root = root
-        self._stories: dict[str, FileTask] = {}
+        self._stories: dict[str, BasicTask | ExtendedTask] = {}
         self._tasks: dict[str, AnyTask] = {}
         self._disk_content: dict[str, str] = {}
 
@@ -169,7 +162,7 @@ class TaskRepo:
         self._stories[root_id] = task
         self._register_tasks(task)
 
-    def _register_tasks(self, task: FileTask) -> None:
+    def _register_tasks(self, task: BasicTask | ExtendedTask) -> None:
         self._tasks[task.id] = task
         for subtask in task.subtasks:
             self._tasks[subtask.id] = subtask

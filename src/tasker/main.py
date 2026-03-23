@@ -33,7 +33,7 @@ def _callback(
 
 
 def get_task_repo() -> TaskRepo:
-    # TODO: this should be `.tasker`
+    # TODO: this should be `.tasker` or configured using it
     planning = Path("planning")
     planning.mkdir(exist_ok=True)
     return TaskRepo(planning)
@@ -103,17 +103,18 @@ def add_many_tasks(
             task_ids.append(child_id)
             console.print(f"  [green]task [blue]{child_id}[/blue] added[/green]")
 
-        if task_ids:
-            console.print(
-                f"[green]Done:[/green] {len(task_ids)} task(s) added"
-                f" to [blue]{parent.task_id}[/blue]",
-                json_output={"task_id": task_ids},
-            )
-        else:
+        if not task_ids:
             console.print(
                 "[yellow]No tasks added.[/yellow]",
                 json_output={"task_id": []},
             )
+            return
+
+        console.print(
+            f"[green]Done:[/green] {len(task_ids)} task(s) added"
+            f" to [blue]{parent.task_id}[/blue]",
+            json_output={"task_id": task_ids},
+        )
 
 
 @app.command("start")
