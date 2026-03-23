@@ -215,3 +215,23 @@ def test_json_cancel_nonexistent_outputs_error() -> None:
     )
     data = json.loads(result.output)
     assert "error" in data
+
+
+# --- idempotent cancel on nonleaf ---
+
+
+def test_cancel_already_cancelled_nonleaf_succeeds(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Subtask one"])
+    assert_invoke(app, ["cancel", "--force", story_id])
+    result = assert_invoke(app, ["cancel", story_id])
+    assert "already cancelled" in result.output
+
+
+def test_cancel_already_cancelled_nonleaf_json_succeeds(
+    story_id: str,
+) -> None:
+    assert_invoke(app, ["add", story_id, "Subtask one"])
+    assert_invoke(app, ["cancel", "--force", story_id])
+    result = assert_invoke(app, ["--json-output", "cancel", story_id])
+    data = json.loads(result.output)
+    assert data["task_ref"] == f"{story_id}-my-story"

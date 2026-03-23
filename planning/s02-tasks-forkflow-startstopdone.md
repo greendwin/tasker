@@ -22,4 +22,5 @@ status: pending
 - [ ] s02t03: add 'stop' command
 - [x] s02t34: Add 'cancel' command - strikethrough title for such commands; add CANCELLED status
 - [x] s02t35: Print forcibly closed tasks on 'done --force'; also add them to 'json-output'
-- [ ] s02t36: Check all commands: trying to change status when it already in that status is not an error
+- [x] s02t36: Check all commands: trying to change status when it already in that status is not an error
+- [ ] s02t37: Cancelling all subtasks sets parent to CANCELLED too

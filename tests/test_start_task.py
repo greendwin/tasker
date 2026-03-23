@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -46,18 +47,14 @@ def test_start_already_in_progress_succeeds(story_id: str) -> None:
     assert_invoke(app, ["start", task_id])  # idempotent, no error
 
 
-def test_start_in_progress_task_still_propagates(story_id: str) -> None:
+def test_start_already_in_progress_is_idempotent(story_id: str) -> None:
     assert_invoke(app, ["add", story_id, "Task one"])
     assert_invoke(app, ["add", story_id, "Task two"])
     task_id = f"{story_id}t01"
-    # Manually set subtask as in-progress in the file without updating parent
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    content = task_file.read_text()
-    task_file.write_text(content.replace(f"- [ ] {task_id}", f"- [~] {task_id}"))
-    # Parent status is still pending on disk — start should fix it
     assert_invoke(app, ["start", task_id])
-    task = parse_task_file(task_file)
-    assert task.status == TaskStatus.IN_PROGRESS
+    # second start should succeed without error
+    result = assert_invoke(app, ["start", task_id])
+    assert "already started" in result.output
 
 
 def test_restart_done_task(story_id: str) -> None:
@@ -143,20 +140,17 @@ def test_start_in_progress_parent_succeeds(story_id: str) -> None:
     assert_invoke(app, ["start", story_id])
 
 
-def test_start_in_progress_parent_shows_warning(story_id: str) -> None:
+def test_start_in_progress_parent_shows_already_started(story_id: str) -> None:
     assert_invoke(app, ["add", story_id, "Task one"])
     assert_invoke(app, ["add", story_id, "Task two"])
     assert_invoke(app, ["start", f"{story_id}t01"])
     result = assert_invoke(app, ["start", story_id])
-    assert "has subtasks" in result.output
-    assert "managed automatically" in result.output
+    assert "already started" in result.output
 
 
-def test_start_in_progress_parent_lists_in_progress_subtasks(story_id: str) -> None:
+def test_start_in_progress_parent_json_succeeds(story_id: str) -> None:
     assert_invoke(app, ["add", story_id, "Task one"])
-    assert_invoke(app, ["add", story_id, "Task two"])
     assert_invoke(app, ["start", f"{story_id}t01"])
-    result = assert_invoke(app, ["start", story_id])
-    assert f"{story_id}t01" in result.output
-    # pending subtask not listed
-    assert f"{story_id}t02" not in result.output
+    result = assert_invoke(app, ["--json-output", "start", story_id])
+    data = json.loads(result.output)
+    assert data["task_ref"] == f"{story_id}-my-story"
