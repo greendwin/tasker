@@ -182,6 +182,10 @@ def _report_starting_nonleaf_task(task: BasicTask | ExtendedTask) -> None:
 def cmd_done_task(
     *,
     task_ref: Annotated[str, typer.Argument(help="Task ID to mark done.")],
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Force close all open subtasks."),
+    ] = False,
     repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
@@ -192,7 +196,7 @@ def cmd_done_task(
             raise typer.Exit(1)
 
         prev_status = task.status
-        repo.finish_task(task)
+        repo.finish_task(task, force=force)
         repo.flush_to_disk()
 
         if prev_status == TaskStatus.DONE:
@@ -214,7 +218,7 @@ def _report_finishing_nonleaf_task(task: BasicTask | ExtendedTask) -> None:
         f"[yellow]Task [blue]{task.ref}[/blue] has subtasks"
         " — its status is managed automatically.[/yellow]"
     )
-    console.print("Finish its open subtasks first.")
+    console.print("Finish its open subtasks first, or use [bold]--force[/bold].")
 
     console.print("\nOpen subtasks:")
     for t in open_tasks:

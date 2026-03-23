@@ -13,10 +13,11 @@ status: pending
 - [x] s02t08: Show story ref on task creation
 - [x] s02t09: All messages must start in the same case
 - [x] s02t06: Add 'done' command
-- [ ] s02t02: support all start/stop/done states
-- [ ] s02t03: add 'stop' command
-- [ ] s02t07: Tell current subtask status when trying to edit subtask with status
 - [x] s02t10: Its ok if parent in-progress task is tryed to be started (idempotent operation) - show list of in-progress tasks, but still show warning about managed status
-- [ ] s02t11: Support --force option for 'done' command -- force stop all nested tasks
+- [x] s02t11: Support --force option for 'done' command -- force stop all nested tasks
+- [ ] s02t07: Tell current subtask status when trying to edit subtask with status
 - [ ] s02t12: TBD: strikethrough task id in bullet list
 - [ ] s02t33: TBD: sort tasks - done / in-progress / pending
+- [ ] s02t02: support all start/stop/done states
+- [ ] s02t03: add 'stop' command
+- [ ] s02t34: Add 'cancel' command - strikethrough title for such commands; add CANCELLED status

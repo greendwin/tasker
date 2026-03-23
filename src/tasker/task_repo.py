@@ -100,12 +100,25 @@ class TaskRepo:
         task.status = TaskStatus.IN_PROGRESS
         self._update_parents_status(task)
 
-    def finish_task(self, task: AnyTask) -> None:
-        if not _is_leaf_task(task):
+    def finish_task(self, task: AnyTask, *, force: bool = False) -> None:
+        if _is_leaf_task(task):
+            task.status = TaskStatus.DONE
+            self._update_parents_status(task)
+            return
+
+        if not force:
             raise TaskHasSubtasksError(task)
 
-        task.status = TaskStatus.DONE
+        self._mark_done_recursive(task)
         self._update_parents_status(task)
+
+    def _mark_done_recursive(self, task: AnyTask) -> None:
+        task.status = TaskStatus.DONE
+        if isinstance(task, InlineTask):
+            return
+
+        for subtask in task.subtasks:
+            self._mark_done_recursive(subtask)
 
     def _update_parents_status(self, task: AnyTask) -> None:
         cur_id = task.id

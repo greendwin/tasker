@@ -96,3 +96,42 @@ def test_stop_task_with_subtasks_lists_pending(story_id: str) -> None:
 
 def test_stop_nonexistent_task_fails() -> None:
     assert_invoke(app, ["done", "s99t01"], expect_error=True)
+
+
+def test_done_nonleaf_hints_force(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Subtask one"])
+    result = assert_invoke(app, ["done", story_id], expect_error=True)
+    assert "--force" in result.output
+
+
+def test_done_force_succeeds_with_open_subtasks(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Subtask one"])
+    assert_invoke(app, ["add", story_id, "Subtask two"])
+    assert_invoke(app, ["done", "--force", story_id])
+
+
+def test_done_force_marks_all_subtasks_done(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Subtask one"])
+    assert_invoke(app, ["add", story_id, "Subtask two"])
+    assert_invoke(app, ["done", "--force", story_id])
+    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task = parse_task_file(task_file)
+    assert all(t.status == TaskStatus.DONE for t in task.subtasks)
+
+
+def test_done_force_marks_parent_done(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Subtask one"])
+    assert_invoke(app, ["add", story_id, "Subtask two"])
+    assert_invoke(app, ["done", "--force", story_id])
+    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task = parse_task_file(task_file)
+    assert task.status == TaskStatus.DONE
+
+
+def test_done_force_on_leaf_task_works(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Leaf task"])
+    task_id = f"{story_id}t01"
+    assert_invoke(app, ["done", "--force", task_id])
+    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task = parse_task_file(task_file)
+    assert task.subtasks[0].status == TaskStatus.DONE
