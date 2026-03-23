@@ -33,9 +33,6 @@ def start_task(repo: TaskRepo, *, task_ref: str) -> str:
         ]
         raise TaskHasSubtasksError(task.id, pending_subtasks=pending)
 
-    if task.status == TaskStatus.IN_PROGRESS:
-        raise TaskerError(f"Task {task.id!r} is already in-progress.", task_ref=task.id)
-
     if task.status == TaskStatus.DONE:
         raise TaskerError(f"Task {task.id!r} is already done.", task_ref=task.id)
 

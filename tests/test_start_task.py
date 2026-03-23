@@ -39,12 +39,25 @@ def test_start_leaf_task_parses_as_in_progress(story_id: str) -> None:
     assert task.subtasks[0].status == TaskStatus.IN_PROGRESS
 
 
-def test_start_already_in_progress_fails(story_id: str) -> None:
+def test_start_already_in_progress_succeeds(story_id: str) -> None:
     assert_invoke(app, ["add", story_id, "Leaf task"])
     task_id = f"{story_id}t01"
     assert_invoke(app, ["start", task_id])
-    result = assert_invoke(app, ["start", task_id], expect_error=True)
-    assert "already in-progress" in result.output
+    assert_invoke(app, ["start", task_id])  # idempotent, no error
+
+
+def test_start_in_progress_task_still_propagates(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    task_id = f"{story_id}t01"
+    # Manually set subtask as in-progress in the file without updating parent
+    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    content = task_file.read_text()
+    task_file.write_text(content.replace(f"- [ ] {task_id}", f"- [~] {task_id}"))
+    # Parent status is still pending on disk — start should fix it
+    assert_invoke(app, ["start", task_id])
+    task = parse_task_file(task_file)
+    assert task.status == TaskStatus.IN_PROGRESS
 
 
 def test_start_done_task_fails(story_id: str) -> None:
