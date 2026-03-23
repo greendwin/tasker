@@ -5,7 +5,8 @@ from typing import Annotated, Optional
 import typer
 from typer_di import Depends, TyperDI
 
-from tasker.methods import add_subtask, create_new_story
+from tasker.exceptions import TaskHasSubtasksError
+from tasker.methods import add_subtask, create_new_story, start_task
 from tasker.parse import parse_task_ref
 from tasker.task_repo import TaskRepo
 from tasker.utils import console
@@ -113,6 +114,45 @@ def add_many_tasks(
                 "[yellow]No tasks added.[/yellow]",
                 json_output={"task_id": []},
             )
+
+
+@app.command("start")
+def start_task_cmd(
+    *,
+    task_ref: Annotated[str, typer.Argument(help="Task ID to mark in-progress.")],
+    repo: TaskRepo = Depends(get_task_repo),
+) -> None:
+    with console.catching_output():
+        try:
+            task_id = start_task(repo, task_ref=task_ref)
+        except TaskHasSubtasksError as ex:
+            pending = ex.pending_subtasks
+            console.print(
+                f"[yellow]Task [blue]{ex.task_ref}[/blue] has subtasks"
+                " — its status is managed automatically.[/yellow]"
+            )
+            console.print("Start one of its pending subtasks instead.")
+            if pending:
+                console.print("\nPending subtasks:")
+                for tid, title in pending:
+                    console.print(f"  [blue]{tid}[/blue]: {title}")
+            else:
+                console.print("\n[dim]No pending subtasks.[/dim]")
+            console.print(
+                "",
+                end="",
+                json_output={
+                    "error": str(ex),
+                    "task_ref": ex.task_ref,
+                    "pending_subtasks": [tid for tid, _ in pending],
+                },
+            )
+            raise typer.Exit(1)
+
+        console.print(
+            f"[green]task [blue]{task_id}[/blue] started[/green]",
+            json_output={"task_id": task_id},
+        )
 
 
 def main() -> None:
