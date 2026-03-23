@@ -98,11 +98,41 @@ class TaskRepo:
             raise TaskHasSubtasksError(task)
 
         task.status = TaskStatus.IN_PROGRESS
+        self._update_parents_status(task)
 
-        # update parent tasks
+    def finish_task(
+        self, task: AnyTask, *, force: bool = False
+    ) -> list[AnyTask] | None:
+        if _is_leaf_task(task):
+            task.status = TaskStatus.DONE
+            self._update_parents_status(task)
+            return None
+
+        if not force:
+            raise TaskHasSubtasksError(task)
+
+        forced_tasks: list[AnyTask] = []
+        self._mark_done_recursive(task, forced_tasks, root=True)
+        self._update_parents_status(task)
+        return forced_tasks
+
+    def _mark_done_recursive(
+        self, task: AnyTask, forced: list[AnyTask], *, root: bool = False
+    ) -> None:
+        if task.status != TaskStatus.DONE and not root:
+            forced.append(task)
+        task.status = TaskStatus.DONE
+
+        if isinstance(task, InlineTask):
+            return
+
+        for subtask in task.subtasks:
+            self._mark_done_recursive(subtask, forced)
+
+    def _update_parents_status(self, task: AnyTask) -> None:
         cur_id = task.id
         while not is_root_task_id(cur_id):
-            ri = parse_task_ref(task.id)
+            ri = parse_task_ref(cur_id)
             parent = self.resolve_ref(ri.parent_id)
 
             assert not isinstance(parent, InlineTask)

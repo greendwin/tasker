@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 import typer
 from typer_di import Depends, TyperDI
 
-from tasker.base_types import BasicTask, ExtendedTask, InlineTask, TaskStatus
+from tasker.base_types import BasicTask, ExtendedTask, TaskStatus, is_nonleaf_task
 from tasker.task_repo import TaskRepo
 from tasker.utils import console
 
@@ -59,7 +59,7 @@ def cmd_new_task(
         repo.flush_to_disk()
 
         console.print(
-            f"[green]task [blue]{task.ref}[/blue] created[/green]",
+            f"[green]Task [blue]{task.ref}[/blue] created[/green]",
             json_output={"task_ref": task.ref},
         )
 
@@ -77,8 +77,8 @@ def cmd_add_task(
         repo.flush_to_disk()
 
         console.print(
-            f"[green]task [blue]{child.ref}[/blue]"
-            f" added to [blue]{parent_ref}[/blue][/green]",
+            f"[green]Task [blue]{child.ref}[/blue]"
+            f" added to [blue]{parent.ref}[/blue][/green]",
             json_output={"task_ref": child.ref},
         )
 
@@ -92,7 +92,8 @@ def cmd_add_many_tasks(
     with console.catching_output():
         parent = repo.resolve_ref(parent_ref)
         console.print(
-            f"[blue]Adding tasks to {parent_ref}[/blue] (empty line to finish):",
+            f"[cyan]Adding tasks to [blue]{parent.ref}[/blue][/cyan]"
+            " (empty line to finish):",
             json_output={"parent_ref": parent_ref},
         )
 
@@ -130,14 +131,11 @@ def cmd_start_task(
     with console.catching_output():
         task = repo.resolve_ref(task_ref)
 
-        if (
-            not console.json_output
-            and not isinstance(task, InlineTask)
-            and task.subtasks
-        ):
-            # on `--json-output` - write human friendly message, otherwise raise
-            _report_nonleaf_task(task)
-            raise typer.Exit(1)
+        if not console.json_output and is_nonleaf_task(task):
+            _report_starting_nonleaf_task(task)
+
+            # it's ok if task is already in-progress
+            raise typer.Exit(task.status != TaskStatus.IN_PROGRESS)
 
         prev_status = task.status
         repo.start_task(task)
@@ -151,26 +149,90 @@ def cmd_start_task(
             action = "started"
 
         console.print(
-            f"[green]task [blue]{task_ref}[/blue] {action}[/green]",
-            json_output={"task_id": task.id},
+            f"[green]Task [blue]{task.ref}[/blue] {action}[/green]",
+            json_output={"task_ref": task.ref},
         )
 
 
-def _report_nonleaf_task(task: BasicTask | ExtendedTask) -> None:
-    pending = [t for t in task.subtasks if t.status == TaskStatus.PENDING]
-
+def _report_starting_nonleaf_task(task: BasicTask | ExtendedTask) -> None:
     console.print(
-        f"[yellow]Task [blue]{task.id}[/blue] has subtasks"
+        f"[yellow]Task [blue]{task.ref}[/blue] has subtasks"
         " — its status is managed automatically.[/yellow]"
     )
-    console.print("Start one of its pending subtasks instead.")
 
-    if pending:
-        console.print("\nPending subtasks:")
-        for t in pending:
+    if task.status == TaskStatus.IN_PROGRESS:
+        in_progress = [t for t in task.subtasks if t.status == TaskStatus.IN_PROGRESS]
+        console.print("\nIn-progress subtasks:")
+        for t in in_progress:
             console.print(f"  [blue]{t.id}[/blue]: {t.title}")
-    else:
+        return
+
+    pending = [t for t in task.subtasks if t.status == TaskStatus.PENDING]
+    console.print("Start one of its pending subtasks instead.")
+    if not pending:
         console.print("\n[dim]No pending subtasks.[/dim]")
+        return
+
+    console.print("\nPending subtasks:")
+    for t in pending:
+        console.print(f"  [blue]{t.id}[/blue]: {t.title}")
+
+
+@app.command("done")
+def cmd_done_task(
+    *,
+    task_ref: Annotated[str, typer.Argument(help="Task ID to mark done.")],
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Force close all open subtasks."),
+    ] = False,
+    repo: TaskRepo = Depends(get_task_repo),
+) -> None:
+    with console.catching_output():
+        task = repo.resolve_ref(task_ref)
+
+        if not force and not console.json_output and is_nonleaf_task(task):
+            _report_finishing_nonleaf_task(task)
+            raise typer.Exit(1)
+
+        prev_status = task.status
+        forced = repo.finish_task(task, force=force)
+        repo.flush_to_disk()
+
+        if prev_status == TaskStatus.DONE:
+            action = "was already finished"
+        else:
+            action = "finished"
+
+        if forced:
+            console.print(
+                "[yellow]Forcibly closed subtasks:[/yellow]",
+                json_output={
+                    "forced_task_ids": [t.id for t in forced],
+                },
+            )
+            for t in forced:
+                console.print(f"  [blue]{t.id}[/blue]: {t.title}")
+
+        console.print(
+            f"[green]Task [blue]{task.ref}[/blue] {action}[/green]",
+            json_output={"task_ref": task.ref},
+        )
+
+
+def _report_finishing_nonleaf_task(task: BasicTask | ExtendedTask) -> None:
+    open_tasks = [t for t in task.subtasks if t.status != TaskStatus.DONE]
+    assert len(open_tasks) > 0
+
+    console.print(
+        f"[yellow]Task [blue]{task.ref}[/blue] has subtasks"
+        " — its status is managed automatically.[/yellow]"
+    )
+    console.print("Finish its open subtasks first, or use [bold]--force[/bold].")
+
+    console.print("\nOpen subtasks:")
+    for t in open_tasks:
+        console.print(f"  [blue]{t.id}[/blue]: {t.title}")
 
 
 def main() -> None:

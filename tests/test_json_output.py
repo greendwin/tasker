@@ -148,3 +148,87 @@ def test_json_error_task_ref_contains_task_id() -> None:
     result = _runner.invoke(app, ["--json-output", "add", "s99", "Task"])
     data = _parse_json(result.output)
     assert "s99" in data["task_ref"]
+
+
+# --- start command ---
+
+
+def test_json_start_outputs_task_ref() -> None:
+    _runner.invoke(app, ["new", "My story"])
+    _runner.invoke(app, ["add", "s01", "Leaf task"])
+    result = _runner.invoke(app, ["--json-output", "start", "s01t01"])
+    assert result.exit_code == 0
+    data = _parse_json(result.output)
+    assert data["task_ref"] == "s01t01"
+
+
+def test_json_start_nonleaf_outputs_error() -> None:
+    _runner.invoke(app, ["new", "My story"])
+    _runner.invoke(app, ["add", "s01", "Leaf task"])
+    result = _runner.invoke(app, ["--json-output", "start", "s01"])
+    assert result.exit_code != 0
+    data = _parse_json(result.output)
+    assert "error" in data
+
+
+def test_json_start_nonexistent_outputs_error() -> None:
+    result = _runner.invoke(app, ["--json-output", "start", "s99t01"])
+    assert result.exit_code != 0
+    data = _parse_json(result.output)
+    assert "error" in data
+
+
+# --- done command ---
+
+
+def test_json_done_outputs_task_ref() -> None:
+    _runner.invoke(app, ["new", "My story"])
+    _runner.invoke(app, ["add", "s01", "Leaf task"])
+    result = _runner.invoke(app, ["--json-output", "done", "s01t01"])
+    assert result.exit_code == 0
+    data = _parse_json(result.output)
+    assert data["task_ref"] == "s01t01"
+
+
+def test_json_done_nonleaf_outputs_error() -> None:
+    _runner.invoke(app, ["new", "My story"])
+    _runner.invoke(app, ["add", "s01", "Leaf task"])
+    result = _runner.invoke(app, ["--json-output", "done", "s01"])
+    assert result.exit_code != 0
+    data = _parse_json(result.output)
+    assert "error" in data
+
+
+def test_json_done_force_outputs_task_ref() -> None:
+    _runner.invoke(app, ["new", "My story"])
+    _runner.invoke(app, ["add", "s01", "Subtask one"])
+    _runner.invoke(app, ["add", "s01", "Subtask two"])
+    result = _runner.invoke(app, ["--json-output", "done", "--force", "s01"])
+    assert result.exit_code == 0
+    data = _parse_json(result.output)
+    assert data["task_ref"] == "s01-my-story"
+
+
+def test_json_done_force_includes_forced_task_ids() -> None:
+    _runner.invoke(app, ["new", "My story"])
+    _runner.invoke(app, ["add", "s01", "Subtask one"])
+    _runner.invoke(app, ["add", "s01", "Subtask two"])
+    result = _runner.invoke(app, ["--json-output", "done", "--force", "s01"])
+    data = _parse_json(result.output)
+    assert set(data["forced_task_ids"]) == {"s01t01", "s01t02"}
+
+
+def test_json_done_force_no_forced_when_all_done() -> None:
+    _runner.invoke(app, ["new", "My story"])
+    _runner.invoke(app, ["add", "s01", "Subtask one"])
+    _runner.invoke(app, ["done", "s01t01"])
+    result = _runner.invoke(app, ["--json-output", "done", "--force", "s01"])
+    data = _parse_json(result.output)
+    assert data.get("forced_task_ids") is None
+
+
+def test_json_done_nonexistent_outputs_error() -> None:
+    result = _runner.invoke(app, ["--json-output", "done", "s99t01"])
+    assert result.exit_code != 0
+    data = _parse_json(result.output)
+    assert "error" in data

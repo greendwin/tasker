@@ -133,3 +133,30 @@ def test_start_subtask_parent_stays_pending_when_others_all_pending(
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
     task = parse_task_file(task_file)
     assert task.status == TaskStatus.PENDING
+
+
+def test_start_in_progress_parent_succeeds(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    assert_invoke(app, ["start", f"{story_id}t01"])
+    # parent is now in-progress; starting it again should not fail
+    assert_invoke(app, ["start", story_id])
+
+
+def test_start_in_progress_parent_shows_warning(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    assert_invoke(app, ["start", f"{story_id}t01"])
+    result = assert_invoke(app, ["start", story_id])
+    assert "has subtasks" in result.output
+    assert "managed automatically" in result.output
+
+
+def test_start_in_progress_parent_lists_in_progress_subtasks(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    assert_invoke(app, ["start", f"{story_id}t01"])
+    result = assert_invoke(app, ["start", story_id])
+    assert f"{story_id}t01" in result.output
+    # pending subtask not listed
+    assert f"{story_id}t02" not in result.output
