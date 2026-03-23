@@ -7,7 +7,7 @@ from .helpers import assert_invoke
 
 def test_add_simple_task() -> None:
     result = assert_invoke(app, ["new", "Simple task summary"])
-    assert "task s01-simple-task-summary created" in result.output
+    assert "Task s01-simple-task-summary created" in result.output
     assert Path("planning/s01-simple-task-summary.md").exists()
 
 
@@ -15,7 +15,7 @@ def test_task_continious_numbering() -> None:
     assert_invoke(app, ["new", "first task"])
 
     result = assert_invoke(app, ["new", "second task"])
-    assert "task s02-second-task created" in result.output
+    assert "Task s02-second-task created" in result.output
     assert Path("planning/s02-second-task.md").exists()
 
 
@@ -51,7 +51,7 @@ def test_add_task_without_description_has_no_placeholder() -> None:
 
 def test_add_task_explicit_slug() -> None:
     result = assert_invoke(app, ["new", "My long task title", "--slug", "custom-slug"])
-    assert "task s01-custom-slug created" in result.output
+    assert "Task s01-custom-slug created" in result.output
     assert Path("planning/s01-custom-slug.md").exists()
 
 

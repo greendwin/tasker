@@ -59,7 +59,7 @@ def cmd_new_task(
         repo.flush_to_disk()
 
         console.print(
-            f"[green]task [blue]{task.ref}[/blue] created[/green]",
+            f"[green]Task [blue]{task.ref}[/blue] created[/green]",
             json_output={"task_ref": task.ref},
         )
 
@@ -77,8 +77,8 @@ def cmd_add_task(
         repo.flush_to_disk()
 
         console.print(
-            f"[green]task [blue]{child.ref}[/blue]"
-            f" added to [blue]{parent_ref}[/blue][/green]",
+            f"[green]Task [blue]{child.ref}[/blue]"
+            f" added to [blue]{parent.ref}[/blue][/green]",
             json_output={"task_ref": child.ref},
         )
 
@@ -92,7 +92,7 @@ def cmd_add_many_tasks(
     with console.catching_output():
         parent = repo.resolve_ref(parent_ref)
         console.print(
-            f"[blue]Adding tasks to {parent_ref}[/blue] (empty line to finish):",
+            f"[cyan]Adding tasks to [blue]{parent.ref}[/blue][/cyan] (empty line to finish):",
             json_output={"parent_ref": parent_ref},
         )
 
@@ -151,7 +151,7 @@ def cmd_start_task(
             action = "started"
 
         console.print(
-            f"[green]task [blue]{task_ref}[/blue] {action}[/green]",
+            f"[green]Task [blue]{task.ref}[/blue] {action}[/green]",
             json_output={"task_id": task.id},
         )
 
@@ -160,7 +160,7 @@ def _report_nonleaf_task(task: BasicTask | ExtendedTask) -> None:
     pending = [t for t in task.subtasks if t.status == TaskStatus.PENDING]
 
     console.print(
-        f"[yellow]Task [blue]{task.id}[/blue] has subtasks"
+        f"[yellow]Task [blue]{task.ref}[/blue] has subtasks"
         " — its status is managed automatically.[/yellow]"
     )
     console.print("Start one of its pending subtasks instead.")
