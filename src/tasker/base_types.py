@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Literal, TypeAlias
 
 from pydantic import BaseModel
-from typing_extensions import override
+from typing_extensions import TypeIs, override
 
 EXTENDED_TASK_FILENAME = "README.md"
 
@@ -68,3 +68,9 @@ def is_root_task_id(task_id: str) -> bool:
     assert "-" not in task_id, "task id must be provided, not task ref"
     # HACK: tasks are in form s123t4567, root tasks are always s123 without `t` suffix
     return "t" not in task_id
+
+
+def is_nonleaf_task(task: AnyTask) -> TypeIs[BasicTask | ExtendedTask]:
+    if not isinstance(task, InlineTask) and task.subtasks:
+        return True
+    return False

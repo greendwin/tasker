@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 import typer
 from typer_di import Depends, TyperDI
 
-from tasker.base_types import BasicTask, ExtendedTask, InlineTask, TaskStatus
+from tasker.base_types import BasicTask, ExtendedTask, TaskStatus, is_nonleaf_task
 from tasker.task_repo import TaskRepo
 from tasker.utils import console
 
@@ -131,11 +131,7 @@ def cmd_start_task(
     with console.catching_output():
         task = repo.resolve_ref(task_ref)
 
-        if (
-            not console.json_output
-            and not isinstance(task, InlineTask)
-            and task.subtasks
-        ):
+        if not console.json_output and is_nonleaf_task(task):
             _report_starting_nonleaf_task(task)
 
             # it's ok if task is already in-progress
@@ -191,11 +187,7 @@ def cmd_done_task(
     with console.catching_output():
         task = repo.resolve_ref(task_ref)
 
-        if (
-            not console.json_output
-            and not isinstance(task, InlineTask)
-            and task.subtasks
-        ):
+        if not force and not console.json_output and is_nonleaf_task(task):
             _report_finishing_nonleaf_task(task)
             raise typer.Exit(1)
 
