@@ -98,11 +98,19 @@ class TaskRepo:
             raise TaskHasSubtasksError(task)
 
         task.status = TaskStatus.IN_PROGRESS
+        self._update_parents_status(task)
 
-        # update parent tasks
+    def finish_task(self, task: AnyTask) -> None:
+        if not _is_leaf_task(task):
+            raise TaskHasSubtasksError(task)
+
+        task.status = TaskStatus.DONE
+        self._update_parents_status(task)
+
+    def _update_parents_status(self, task: AnyTask) -> None:
         cur_id = task.id
         while not is_root_task_id(cur_id):
-            ri = parse_task_ref(task.id)
+            ri = parse_task_ref(cur_id)
             parent = self.resolve_ref(ri.parent_id)
 
             assert not isinstance(parent, InlineTask)
