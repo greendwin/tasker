@@ -150,7 +150,7 @@ def cmd_start_task(
 
         console.print(
             f"[green]Task [blue]{task.ref}[/blue] {action}[/green]",
-            json_output={"task_id": task.id},
+            json_output={"task_ref": task.ref},
         )
 
 
@@ -196,7 +196,7 @@ def cmd_done_task(
             raise typer.Exit(1)
 
         prev_status = task.status
-        repo.finish_task(task, force=force)
+        forced = repo.finish_task(task, force=force)
         repo.flush_to_disk()
 
         if prev_status == TaskStatus.DONE:
@@ -204,9 +204,19 @@ def cmd_done_task(
         else:
             action = "finished"
 
+        if forced:
+            console.print(
+                "[yellow]Forcibly closed subtasks:[/yellow]",
+                json_output={
+                    "forced_task_ids": [t.id for t in forced],
+                },
+            )
+            for t in forced:
+                console.print(f"  [blue]{t.id}[/blue]: {t.title}")
+
         console.print(
             f"[green]Task [blue]{task.ref}[/blue] {action}[/green]",
-            json_output={"task_id": task.id},
+            json_output={"task_ref": task.ref},
         )
 
 

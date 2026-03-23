@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -135,3 +136,43 @@ def test_done_force_on_leaf_task_works(story_id: str) -> None:
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
     task = parse_task_file(task_file)
     assert task.subtasks[0].status == TaskStatus.DONE
+
+
+def test_done_force_prints_forcibly_closed_subtasks(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Subtask one"])
+    assert_invoke(app, ["add", story_id, "Subtask two"])
+    result = assert_invoke(app, ["done", "--force", story_id])
+    assert f"{story_id}t01" in result.output
+    assert f"{story_id}t02" in result.output
+
+
+def test_done_force_does_not_list_already_done_subtasks(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Subtask one"])
+    assert_invoke(app, ["add", story_id, "Subtask two"])
+    assert_invoke(app, ["done", f"{story_id}t01"])
+    result = assert_invoke(app, ["done", "--force", story_id])
+    assert f"{story_id}t01" not in result.output
+    assert f"{story_id}t02" in result.output
+
+
+def test_done_force_no_output_when_all_already_done(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Subtask one"])
+    assert_invoke(app, ["done", f"{story_id}t01"])
+    result = assert_invoke(app, ["done", "--force", story_id])
+    assert "Forcibly" not in result.output
+
+
+def test_done_force_json_includes_forced_task_ids(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Subtask one"])
+    assert_invoke(app, ["add", story_id, "Subtask two"])
+    result = assert_invoke(app, ["--json-output", "done", "--force", story_id])
+    data = json.loads(result.output)
+    assert set(data["forced_task_ids"]) == {f"{story_id}t01", f"{story_id}t02"}
+
+
+def test_done_force_json_empty_when_nothing_forced(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Subtask one"])
+    assert_invoke(app, ["done", f"{story_id}t01"])
+    result = assert_invoke(app, ["--json-output", "done", "--force", story_id])
+    data = json.loads(result.output)
+    assert data.get("forced_task_ids") is None

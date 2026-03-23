@@ -29,6 +29,7 @@ class OutputContext:
 
     @contextmanager
     def catching_output(self) -> Iterator[None]:
+        self._json_output_obj = {}
         try:
             yield
         except TaskerError as ex:
