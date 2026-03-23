@@ -76,32 +76,23 @@ def test_batch_empty_input_shows_no_tasks_added(parent_id: str) -> None:
 # --- JSON output mode ---
 
 
-def test_batch_json_outputs_task_ids_key(parent_id: str) -> None:
+def test_batch_json_outputs_parent_ref(parent_id: str) -> None:
     result = assert_invoke(
         app, ["--json-output", "add-many", parent_id], input="A\nB\n\n"
     )
     data = json.loads(result.output.strip())
-    assert "parent_id" in data
-    assert "task_id" in data
+    assert "parent_ref" in data
+    assert data["parent_ref"] == parent_id
 
 
-def test_batch_json_task_ids_is_list(parent_id: str) -> None:
+def test_batch_json_task_ids(parent_id: str) -> None:
     result = assert_invoke(
         app, ["--json-output", "add-many", parent_id], input="A\nB\n\n"
     )
     data = json.loads(result.output.strip())
-    assert isinstance(data["task_id"], list)
-
-
-def test_batch_json_task_ids_correct(parent_id: str) -> None:
-    result = assert_invoke(
-        app,
-        ["--json-output", "add-many", parent_id],
-        input="Task one\nTask two\n\n",
-    )
-    data = json.loads(result.output.strip())
-    assert data["parent_id"] == parent_id
-    assert data["task_id"] == [f"{parent_id}t01", f"{parent_id}t02"]
+    assert "task_refs" in data
+    assert isinstance(data["task_refs"], list)
+    assert data["task_refs"] == [f"{parent_id}t01", f"{parent_id}t02"]
 
 
 def test_batch_json_output_is_only_json(parent_id: str) -> None:
@@ -121,4 +112,4 @@ def test_batch_json_no_prompt_in_output(parent_id: str) -> None:
 def test_batch_json_empty_input_returns_empty_list(parent_id: str) -> None:
     result = assert_invoke(app, ["--json-output", "add-many", parent_id], input="\n")
     data = json.loads(result.output.strip())
-    assert data["task_id"] == []
+    assert data["task_refs"] == []

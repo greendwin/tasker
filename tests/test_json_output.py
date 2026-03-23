@@ -27,16 +27,11 @@ def test_json_new_task_is_single_object() -> None:
     assert isinstance(data, dict)
 
 
-def test_json_new_task_returns_task_id() -> None:
+def test_json_new_task_ref_is_correct() -> None:
     result = _runner.invoke(app, ["--json-output", "new", "My task"])
     data = _parse_json(result.output)
-    assert "task_id" in data
-
-
-def test_json_new_task_id_is_correct() -> None:
-    result = _runner.invoke(app, ["--json-output", "new", "My task"])
-    data = _parse_json(result.output)
-    assert data["task_id"] == "s01-my-task"
+    assert "task_ref" in data
+    assert data["task_ref"] == "s01-my-task"
 
 
 def test_json_new_task_no_extra_output() -> None:
@@ -61,18 +56,12 @@ def test_json_add_task_is_single_object() -> None:
     assert isinstance(data, dict)
 
 
-def test_json_add_task_returns_task_id() -> None:
+def test_json_add_task_ref_is_correct() -> None:
     _runner.invoke(app, ["new", "Parent story"])
     result = _runner.invoke(app, ["--json-output", "add", "s01", "Subtask"])
     data = _parse_json(result.output)
-    assert "task_id" in data
-
-
-def test_json_add_task_id_is_correct() -> None:
-    _runner.invoke(app, ["new", "Parent story"])
-    result = _runner.invoke(app, ["--json-output", "add", "s01", "Subtask"])
-    data = _parse_json(result.output)
-    assert data["task_id"] == "s01t01"
+    assert "task_ref" in data
+    assert data["task_ref"] == "s01t01"
 
 
 def test_json_add_task_no_extra_output() -> None:

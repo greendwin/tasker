@@ -33,5 +33,5 @@ def assert_invoke(
 
 def create_task(title: str) -> str:
     result = assert_invoke(app, ["--json-output", "new", title])
-    task_ref: str = json.loads(result.output.strip())["task_id"]
+    task_ref: str = json.loads(result.output.strip())["task_ref"]
     return parse_task_ref(task_ref).task_id

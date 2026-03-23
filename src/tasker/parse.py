@@ -9,6 +9,7 @@ from .base_types import (
     ExtendedTask,
     InlineTask,
     TaskStatus,
+    build_task_ref,
 )
 from .exceptions import TaskValidateError
 
@@ -92,15 +93,10 @@ def detect_task_type(task_path: Path) -> TaskDetectResult:
 def parse_task(
     content: str, *, task_id: str, slug: str, extended: bool
 ) -> BasicTask | ExtendedTask:
-    try:
-        parsed = _parse_content(content)
-    except TaskValidateError as ex:
-        ex.task_ref = task_id
-        raise
+    parsed = _parse_content(content, task_ref=build_task_ref(task_id, slug))
 
     task_cls = ExtendedTask if extended else BasicTask
     return task_cls(
-        parent=None,
         id=parsed.id,
         slug=slug,
         title=parsed.title,
@@ -113,13 +109,7 @@ def parse_task(
 def parse_task_file(path: Path) -> BasicTask | ExtendedTask:
     tt = detect_task_type(path)
     content = tt.content_path.read_text(encoding="utf-8")
-    try:
-        return parse_task(
-            content, task_id=tt.task_id, slug=tt.slug, extended=tt.extended
-        )
-    except TaskValidateError as ex:
-        ex.task_ref = tt.task_ref
-        raise
+    return parse_task(content, task_id=tt.task_id, slug=tt.slug, extended=tt.extended)
 
 
 class _ParsedContent(NamedTuple):
@@ -130,16 +120,20 @@ class _ParsedContent(NamedTuple):
     subtasks: list[AnyTask]
 
 
-def _parse_content(content: str) -> _ParsedContent:
+def _parse_content(content: str, *, task_ref: str) -> _ParsedContent:
     lines = content.splitlines()
 
     if not lines or lines[0] != "---":
-        raise TaskValidateError("Missing front-matter: file must start with '---'")
+        raise TaskValidateError(
+            "Missing front-matter: file must start with '---'", task_ref=task_ref
+        )
 
     try:
         fm_end = lines.index("---", 1)
     except ValueError:
-        raise TaskValidateError("Unclosed front-matter: missing closing '---'")
+        raise TaskValidateError(
+            "Unclosed front-matter: missing closing '---'", task_ref=task_ref
+        )
 
     id_val = ""
     status = TaskStatus.PENDING
@@ -155,10 +149,11 @@ def _parse_content(content: str) -> _ParsedContent:
         body.pop(0)
 
     if not body:
-        raise TaskValidateError("Missing title after front-matter")
+        raise TaskValidateError("Missing title after front-matter", task_ref=task_ref)
 
     if not body[0].startswith("# "):
-        raise TaskValidateError("Title must be a '# Heading' line")
+        raise TaskValidateError("Title must be a '# Heading' line", task_ref=task_ref)
+
     title = body[0][2:]
 
     # Find ## Subtasks section in body[1:]
@@ -187,7 +182,6 @@ def _parse_content(content: str) -> _ParsedContent:
                         id=task_id,
                         title=task_title,
                         status=_CHECKBOX_STATUS.get(checkbox, TaskStatus.PENDING),
-                        parent=None,
                     )
                 )
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, override
 
 from pydantic import BaseModel
 
@@ -25,7 +25,10 @@ class TaskBase(BaseModel):
     id: str  # unique id that can be used to reference a task
     title: str  # short summary of a task
     status: TaskStatus
-    parent: AnyTask | None
+
+    @property
+    def ref(self) -> str:
+        return self.id
 
 
 class FileTaskBase(TaskBase):
@@ -34,6 +37,11 @@ class FileTaskBase(TaskBase):
     # task data
     description: str | None = None
     subtasks: list[AnyTask]
+
+    @property
+    @override
+    def ref(self) -> str:
+        return build_task_ref(self.id, self.slug)
 
 
 class InlineTask(TaskBase):
@@ -49,3 +57,13 @@ class ExtendedTask(FileTaskBase):
 
 
 AnyTask: TypeAlias = InlineTask | BasicTask | ExtendedTask
+
+
+def build_task_ref(task_id: str, slug: str) -> str:
+    return f"{task_id}-{slug}"
+
+
+def is_root_task_id(task_id: str) -> bool:
+    assert "-" not in task_id, "task id must be provided, not task ref"
+    # HACK: tasks are in form s123t4567, so root tasks are always s123 without `t` suffix
+    return "t" not in task_id
