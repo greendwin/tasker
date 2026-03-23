@@ -14,6 +14,7 @@ _CHECKBOX = {
     TaskStatus.PENDING: " ",
     TaskStatus.IN_PROGRESS: "~",
     TaskStatus.DONE: "x",
+    TaskStatus.CANCELLED: "x",
 }
 
 _jinja = Environment(

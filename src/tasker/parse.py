@@ -177,11 +177,16 @@ def _parse_content(content: str, *, task_ref: str) -> _ParsedContent:
             m = _SUBTASK_RE.match(line)
             if m:
                 checkbox, task_id, task_title = m.group(1), m.group(2), m.group(3)
+                sub_status = _CHECKBOX_STATUS.get(checkbox, TaskStatus.PENDING)
+                # Strikethrough title with [x] checkbox means cancelled
+                if task_title.startswith("~~") and task_title.endswith("~~"):
+                    task_title = task_title[2:-2]
+                    sub_status = TaskStatus.CANCELLED
                 subtasks.append(
                     InlineTask(
                         id=task_id,
                         title=task_title,
-                        status=_CHECKBOX_STATUS.get(checkbox, TaskStatus.PENDING),
+                        status=sub_status,
                     )
                 )
 

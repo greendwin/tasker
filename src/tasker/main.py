@@ -5,7 +5,13 @@ from typing import Annotated, Optional
 import typer
 from typer_di import Depends, TyperDI
 
-from tasker.base_types import BasicTask, ExtendedTask, TaskStatus, is_nonleaf_task
+from tasker.base_types import (
+    BasicTask,
+    ExtendedTask,
+    InlineTask,
+    TaskStatus,
+    is_nonleaf_task,
+)
 from tasker.task_repo import TaskRepo
 from tasker.utils import console
 
@@ -178,6 +184,72 @@ def _report_starting_nonleaf_task(task: BasicTask | ExtendedTask) -> None:
         console.print(f"  [blue]{t.id}[/blue]: {t.title}")
 
 
+@app.command("cancel")
+def cmd_cancel_task(
+    *,
+    task_ref: Annotated[str, typer.Argument(help="Task ID to cancel.")],
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Force cancel all open subtasks."),
+    ] = False,
+    repo: TaskRepo = Depends(get_task_repo),
+) -> None:
+    with console.catching_output():
+        task = repo.resolve_ref(task_ref)
+
+        if not force and not console.json_output and is_nonleaf_task(task):
+            _report_cancelling_nonleaf_task(task)
+            raise typer.Exit(1)
+
+        prev_status = task.status
+        forced = repo.cancel_task(task, force=force)
+        repo.flush_to_disk()
+
+        if forced:
+            console.print(
+                "[yellow]Forcibly cancelled subtasks:[/yellow]",
+                json_output={
+                    "forced_task_ids": [t.id for t in forced],
+                },
+            )
+            for t in forced:
+                console.print(f"  [blue]{t.id}[/blue]: {t.title}")
+
+        if prev_status == TaskStatus.CANCELLED:
+            action = "was already cancelled"
+        else:
+            action = "cancelled"
+
+        console.print(
+            f"[green]Task [blue]{task.ref}[/blue] {action}[/green]",
+            json_output={"task_ref": task.ref},
+        )
+
+
+def _report_cancelling_nonleaf_task(
+    task: BasicTask | ExtendedTask,
+) -> None:
+    open_tasks = [t for t in task.subtasks if not _is_task_closed(t)]
+
+    console.print(
+        f"[yellow]Task [blue]{task.ref}[/blue] has subtasks"
+        " — its status is managed automatically.[/yellow]"
+    )
+
+    if not open_tasks:
+        console.print("All subtasks are already closed.")
+        return
+
+    console.print("Cancel its open subtasks first, or use [bold]--force[/bold].")
+    console.print("\nOpen subtasks:")
+    for t in open_tasks:
+        console.print(f"  [blue]{t.id}[/blue]: {t.title}")
+
+
+def _is_task_closed(task: BasicTask | ExtendedTask | InlineTask) -> bool:
+    return task.status in (TaskStatus.DONE, TaskStatus.CANCELLED)
+
+
 @app.command("done")
 def cmd_done_task(
     *,
@@ -199,11 +271,6 @@ def cmd_done_task(
         forced = repo.finish_task(task, force=force)
         repo.flush_to_disk()
 
-        if prev_status == TaskStatus.DONE:
-            action = "was already finished"
-        else:
-            action = "finished"
-
         if forced:
             console.print(
                 "[yellow]Forcibly closed subtasks:[/yellow]",
@@ -214,6 +281,11 @@ def cmd_done_task(
             for t in forced:
                 console.print(f"  [blue]{t.id}[/blue]: {t.title}")
 
+        if prev_status == TaskStatus.DONE:
+            action = "was already finished"
+        else:
+            action = "finished"
+
         console.print(
             f"[green]Task [blue]{task.ref}[/blue] {action}[/green]",
             json_output={"task_ref": task.ref},
@@ -221,7 +293,7 @@ def cmd_done_task(
 
 
 def _report_finishing_nonleaf_task(task: BasicTask | ExtendedTask) -> None:
-    open_tasks = [t for t in task.subtasks if t.status != TaskStatus.DONE]
+    open_tasks = [t for t in task.subtasks if not _is_task_closed(t)]
     assert len(open_tasks) > 0
 
     console.print(

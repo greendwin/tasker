@@ -100,6 +100,22 @@ class TaskRepo:
         task.status = TaskStatus.IN_PROGRESS
         self._update_parents_status(task)
 
+    def cancel_task(
+        self, task: AnyTask, *, force: bool = False
+    ) -> list[AnyTask] | None:
+        if _is_leaf_task(task):
+            task.status = TaskStatus.CANCELLED
+            self._update_parents_status(task)
+            return None
+
+        if not force:
+            raise TaskHasSubtasksError(task)
+
+        closed_tasks: list[AnyTask] = []
+        self._close_recursive(task, TaskStatus.CANCELLED, closed_tasks)
+        self._update_parents_status(task)
+        return closed_tasks[1:]  # don't include root task
+
     def finish_task(
         self, task: AnyTask, *, force: bool = False
     ) -> list[AnyTask] | None:
@@ -111,23 +127,26 @@ class TaskRepo:
         if not force:
             raise TaskHasSubtasksError(task)
 
-        forced_tasks: list[AnyTask] = []
-        self._mark_done_recursive(task, forced_tasks, root=True)
+        closed_tasks: list[AnyTask] = []
+        self._close_recursive(task, TaskStatus.DONE, closed_tasks)
         self._update_parents_status(task)
-        return forced_tasks
+        return closed_tasks[1:]  # don't include root task
 
-    def _mark_done_recursive(
-        self, task: AnyTask, forced: list[AnyTask], *, root: bool = False
+    def _close_recursive(
+        self,
+        task: AnyTask,
+        new_status: TaskStatus,
+        closed_tasks: list[AnyTask],
     ) -> None:
-        if task.status != TaskStatus.DONE and not root:
-            forced.append(task)
-        task.status = TaskStatus.DONE
+        if not task.is_closed:
+            closed_tasks.append(task)
+        task.status = new_status
 
         if isinstance(task, InlineTask):
             return
 
         for subtask in task.subtasks:
-            self._mark_done_recursive(subtask, forced)
+            self._close_recursive(subtask, new_status, closed_tasks)
 
     def _update_parents_status(self, task: AnyTask) -> None:
         cur_id = task.id
@@ -210,7 +229,7 @@ def _is_leaf_task(task: AnyTask) -> bool:
 
 
 def _get_status_from_subtasks(task: BasicTask | ExtendedTask) -> TaskStatus:
-    if all(t.status == TaskStatus.DONE for t in task.subtasks):
+    if all(t.is_closed for t in task.subtasks):
         return TaskStatus.DONE
     if any(t.status == TaskStatus.IN_PROGRESS for t in task.subtasks):
         return TaskStatus.IN_PROGRESS
