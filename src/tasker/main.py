@@ -136,9 +136,10 @@ def cmd_start_task(
             and not isinstance(task, InlineTask)
             and task.subtasks
         ):
-            # on `--json-output` - write human friendly message, otherwise raise
             _report_starting_nonleaf_task(task)
-            raise typer.Exit(1)
+
+            # it's ok if task is already in-progress
+            raise typer.Exit(task.status != TaskStatus.IN_PROGRESS)
 
         prev_status = task.status
         repo.start_task(task)
@@ -158,20 +159,27 @@ def cmd_start_task(
 
 
 def _report_starting_nonleaf_task(task: BasicTask | ExtendedTask) -> None:
-    pending = [t for t in task.subtasks if t.status == TaskStatus.PENDING]
-
     console.print(
         f"[yellow]Task [blue]{task.ref}[/blue] has subtasks"
         " — its status is managed automatically.[/yellow]"
     )
-    console.print("Start one of its pending subtasks instead.")
 
-    if pending:
-        console.print("\nPending subtasks:")
-        for t in pending:
+    if task.status == TaskStatus.IN_PROGRESS:
+        in_progress = [t for t in task.subtasks if t.status == TaskStatus.IN_PROGRESS]
+        console.print("\nIn-progress subtasks:")
+        for t in in_progress:
             console.print(f"  [blue]{t.id}[/blue]: {t.title}")
-    else:
+        return
+
+    pending = [t for t in task.subtasks if t.status == TaskStatus.PENDING]
+    console.print("Start one of its pending subtasks instead.")
+    if not pending:
         console.print("\n[dim]No pending subtasks.[/dim]")
+        return
+
+    console.print("\nPending subtasks:")
+    for t in pending:
+        console.print(f"  [blue]{t.id}[/blue]: {t.title}")
 
 
 @app.command("done")
