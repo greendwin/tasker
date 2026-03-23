@@ -60,7 +60,7 @@ def test_start_in_progress_task_still_propagates(story_id: str) -> None:
     assert task.status == TaskStatus.IN_PROGRESS
 
 
-def test_start_done_task_fails(story_id: str) -> None:
+def test_restart_done_task(story_id: str) -> None:
     # Manually create a task file with done status by reading and checking
     # We simulate by calling start twice and checking the error
     assert_invoke(app, ["add", story_id, "Leaf task"])
@@ -69,8 +69,11 @@ def test_start_done_task_fails(story_id: str) -> None:
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
     content = task_file.read_text()
     task_file.write_text(content.replace("- [ ]", "- [x]"))
-    result = assert_invoke(app, ["start", task_id], expect_error=True)
-    assert "already done" in result.output
+
+    result = assert_invoke(app, ["start", task_id])
+    assert "restart" in result.output
+    task = parse_task_file(task_file)
+    assert task.status == TaskStatus.IN_PROGRESS
 
 
 def test_start_task_with_subtasks_fails(story_id: str) -> None:

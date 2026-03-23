@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal, TypeAlias, override
+from typing import Literal, TypeAlias
 
 from pydantic import BaseModel
+from typing_extensions import override
 
 EXTENDED_TASK_FILENAME = "README.md"
 
@@ -65,5 +66,5 @@ def build_task_ref(task_id: str, slug: str) -> str:
 
 def is_root_task_id(task_id: str) -> bool:
     assert "-" not in task_id, "task id must be provided, not task ref"
-    # HACK: tasks are in form s123t4567, so root tasks are always s123 without `t` suffix
+    # HACK: tasks are in form s123t4567, root tasks are always s123 without `t` suffix
     return "t" not in task_id

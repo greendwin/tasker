@@ -135,15 +135,23 @@ def cmd_start_task(
             and not isinstance(task, InlineTask)
             and task.subtasks
         ):
-            # on `--json-output` - write human friendly message, otherwise raise an error
+            # on `--json-output` - write human friendly message, otherwise raise
             _report_nonleaf_task(task)
             raise typer.Exit(1)
 
+        prev_status = task.status
         repo.start_task(task)
         repo.flush_to_disk()
 
+        if prev_status == TaskStatus.DONE:
+            action = "restarted"
+        elif prev_status == TaskStatus.IN_PROGRESS:
+            action = "was already started"
+        else:
+            action = "started"
+
         console.print(
-            f"[green]task [blue]{task_ref}[/blue] started[/green]",
+            f"[green]task [blue]{task_ref}[/blue] {action}[/green]",
             json_output={"task_id": task.id},
         )
 

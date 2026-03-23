@@ -39,8 +39,7 @@ class OutputContext:
                 raise typer.Exit(1) from ex
 
             self._json_output_obj = {"error": str(ex)}
-            if ex.task_ref is not None:
-                self._json_output_obj["task_ref"] = ex.task_ref
+            self._json_output_obj.update(ex.json_output)
             if self.debug:
                 self._json_output_obj["traceback"] = traceback.format_exc()
             raise typer.Exit(1) from ex

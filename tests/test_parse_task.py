@@ -20,7 +20,6 @@ def _write_task(
     stem = name.removesuffix(".md")
     task_id, slug = stem.split("-", 1)
     task = BasicTask(
-        parent=None,
         id=task_id,
         slug=slug,
         title=title,
@@ -82,7 +81,6 @@ def test_parse_simple_file_is_basic() -> None:
 def test_parse_detailed_dir() -> None:
     _DIR.mkdir(exist_ok=True)
     task = ExtendedTask(
-        parent=None,
         id="s01",
         slug="my-task",
         title="My task",
