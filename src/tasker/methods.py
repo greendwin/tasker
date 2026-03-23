@@ -40,5 +40,6 @@ def start_task(repo: TaskRepo, *, task_ref: str) -> str:
         raise TaskerError(f"Task {task.id!r} is already done.", task_ref=task.id)
 
     task.status = TaskStatus.IN_PROGRESS
+    repo.propagate_status_up(task.id)
     repo.flush_tasks_to_disk()
     return task.id

@@ -19,6 +19,14 @@ def generate_slug(title: str) -> str:
     return "-".join(words)
 
 
+def _derive_parent_status(subtasks: list[AnyTask]) -> TaskStatus:
+    if all(t.status == TaskStatus.DONE for t in subtasks):
+        return TaskStatus.DONE
+    if all(t.status == TaskStatus.PENDING for t in subtasks):
+        return TaskStatus.PENDING
+    return TaskStatus.IN_PROGRESS
+
+
 class TaskRepo:
     def __init__(self, root: Path) -> None:
         self.root = root
@@ -109,6 +117,21 @@ class TaskRepo:
             if t.id.startswith(child_prefix) and len(t.id) == len(child_prefix) + 2
         ]
         return f"{child_prefix}{max(existing_nums, default=0) + 1:02d}"
+
+    def propagate_status_up(self, task_id: str) -> None:
+        ref = parse_task_ref(task_id)
+        parent_id = ref.parent_id
+        if parent_id == task_id:
+            return  # root — no parent to update
+
+        parent = self._tasks.get(parent_id)
+        if not isinstance(parent, (BasicTask, ExtendedTask)):
+            return
+
+        new_status = _derive_parent_status(parent.subtasks)
+        if parent.status != new_status:
+            parent.status = new_status
+            self.propagate_status_up(parent_id)
 
     def flush_tasks_to_disk(self) -> None:
         for story in self._stories.values():

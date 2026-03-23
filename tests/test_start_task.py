@@ -97,3 +97,23 @@ def test_start_task_by_slug_ref(story_id: str) -> None:
 
 def test_start_nonexistent_task_fails() -> None:
     assert_invoke(app, ["start", "s99t01"], expect_error=True)
+
+
+def test_start_subtask_sets_parent_in_progress(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Leaf task"])
+    task_id = f"{story_id}t01"
+    assert_invoke(app, ["start", task_id])
+    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task = parse_task_file(task_file)
+    assert task.status == TaskStatus.IN_PROGRESS
+
+
+def test_start_subtask_parent_stays_pending_when_others_all_pending(
+    story_id: str,
+) -> None:
+    # Two subtasks; start none → parent stays pending
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task = parse_task_file(task_file)
+    assert task.status == TaskStatus.PENDING
