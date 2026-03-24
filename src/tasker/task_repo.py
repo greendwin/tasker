@@ -84,6 +84,7 @@ class TaskRepo:
         )
         parent.subtasks.append(subtask)
         self._tasks[child_id] = subtask
+        self._update_parents_status(subtask)
 
         return subtask
 
