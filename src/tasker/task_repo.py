@@ -195,12 +195,13 @@ class TaskRepo:
 
         self._root_tasks[root_id] = task
         self._register_tasks(task)
+        _invalidate_task_statuses(task)
 
     def _register_tasks(self, task: BasicTask | ExtendedTask) -> None:
         self._tasks[task.id] = task
         for subtask in task.subtasks:
             self._tasks[subtask.id] = subtask
-            if isinstance(subtask, (BasicTask, ExtendedTask)):
+            if not isinstance(subtask, InlineTask):
                 self._register_tasks(subtask)
 
 
@@ -229,6 +230,10 @@ def _is_leaf_task(task: AnyTask) -> bool:
 
 
 def _get_status_from_subtasks(task: BasicTask | ExtendedTask) -> TaskStatus:
+    if not task.subtasks:
+        # no subtasks -- kepp status same
+        return task.status
+
     if all(t.is_closed for t in task.subtasks):
         if all(t.status == TaskStatus.CANCELLED for t in task.subtasks):
             return TaskStatus.CANCELLED
@@ -236,3 +241,14 @@ def _get_status_from_subtasks(task: BasicTask | ExtendedTask) -> TaskStatus:
     if any(t.status == TaskStatus.IN_PROGRESS for t in task.subtasks):
         return TaskStatus.IN_PROGRESS
     return TaskStatus.PENDING
+
+
+def _invalidate_task_statuses(root: AnyTask) -> None:
+    if isinstance(root, InlineTask):
+        return
+
+    for child in root.subtasks:
+        _invalidate_task_statuses(child)
+
+    # update root itself
+    root.status = _get_status_from_subtasks(root)

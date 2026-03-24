@@ -5,6 +5,7 @@ import pytest
 from tasker.base_types import BasicTask, ExtendedTask, InlineTask
 from tasker.exceptions import TaskerError
 from tasker.main import app
+from tasker.render import build_task_file_path
 from tasker.task_repo import TaskRepo, generate_slug
 
 from .helpers import assert_invoke, create_task
@@ -78,7 +79,7 @@ def test_next_child_id_unknown_ref_raises() -> None:
         repo.resolve_ref("s99")
 
 
-# --- _load_story ---
+# --- load_root_task ---
 
 
 def test_load_story_raises_on_duplicate_id() -> None:
@@ -254,3 +255,34 @@ def test_flush_twice_does_not_rewrite_unchanged() -> None:
     mtime_after_first_flush = task_file.stat().st_mtime_ns
     repo.flush_to_disk()
     assert task_file.stat().st_mtime_ns == mtime_after_first_flush
+
+
+# --- task statuses ---
+
+
+def test_update_statuses_on_load() -> None:
+    repo = make_repo()
+    task = repo.create_root_task(
+        title="My story", description=None, slug=None, extended=False
+    )
+    repo.add_subtask(task, title="Subtask")
+    repo.flush_to_disk()
+
+    # custom edit and mark subtask done
+    task_path = build_task_file_path(repo.root, task)
+    patched_content = task_path.read_text().replace("[ ]", "[x]")
+    task_path.write_text(patched_content)
+
+    # sanity check
+    assert "status: pending" in patched_content
+
+    # recreate repo
+    repo = make_repo()
+
+    # resave loaded data
+    _ = repo.resolve_ref(task.ref)
+    repo.flush_to_disk()
+
+    # task must be updated automagically
+    updated_content = task_path.read_text()
+    assert "status: done" in updated_content
