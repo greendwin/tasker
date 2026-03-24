@@ -69,11 +69,17 @@ def cmd_add_task(
     *,
     parent_ref: Annotated[str, typer.Argument(help="Parent task ID.")],
     title: Annotated[str, typer.Argument(help="Subtask title.")],
+    details: Annotated[
+        Optional[str], typer.Option("--details", "-d", help="Task description.")
+    ] = None,
+    slug: Annotated[
+        Optional[str], typer.Option("--slug", help="Override auto-derived slug.")
+    ] = None,
     repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
         parent = repo.resolve_ref(parent_ref)
-        child = repo.add_subtask(parent, title=title)
+        child = repo.add_subtask(parent, title=title, description=details, slug=slug)
         repo.flush_to_disk()
 
         console.print(

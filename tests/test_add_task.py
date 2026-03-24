@@ -98,3 +98,97 @@ def test_add_subtask_to_in_progress_parent_keeps_status(parent_id: str) -> None:
     task_file = next(Path("planning").glob(f"{parent_id}-*.md"))
     task = parse_task_file(task_file)
     assert task.status == TaskStatus.IN_PROGRESS
+
+
+# --- add with --details ---
+
+
+def test_add_detailed_subtask_upgrades_parent(parent_id: str) -> None:
+    assert_invoke(
+        app, ["add", parent_id, "Write CLI spec", "--details", "Cover all commands"]
+    )
+    # parent should be upgraded to extended (directory)
+    parent_dir = next(Path("planning").glob(f"{parent_id}-*/"))
+    assert parent_dir.is_dir()
+    assert (parent_dir / "README.md").exists()
+
+
+def test_add_detailed_subtask_creates_child_file(parent_id: str) -> None:
+    assert_invoke(
+        app, ["add", parent_id, "Write CLI spec", "--details", "Cover all commands"]
+    )
+    parent_dir = next(Path("planning").glob(f"{parent_id}-*/"))
+    child_file = next(parent_dir.glob(f"{parent_id}t01-*.md"))
+    assert child_file.exists()
+    content = child_file.read_text()
+    assert "Write CLI spec" in content
+    assert "Cover all commands" in content
+
+
+def test_add_detailed_subtask_removes_old_parent_file(parent_id: str) -> None:
+    old_file = next(Path("planning").glob(f"{parent_id}-*.md"))
+    assert old_file.exists()
+    assert_invoke(
+        app, ["add", parent_id, "Write CLI spec", "--details", "Cover all commands"]
+    )
+    assert not old_file.exists()
+
+
+def test_add_detailed_subtask_output(parent_id: str) -> None:
+    result = assert_invoke(
+        app, ["add", parent_id, "Write CLI spec", "--details", "Cover all commands"]
+    )
+    assert f"{parent_id}t01" in result.output
+
+
+def test_add_detailed_subtask_with_slug(parent_id: str) -> None:
+    assert_invoke(
+        app,
+        [
+            "add",
+            parent_id,
+            "Write CLI spec",
+            "--details",
+            "Cover all commands",
+            "--slug",
+            "cli-spec",
+        ],
+    )
+    parent_dir = next(Path("planning").glob(f"{parent_id}-*/"))
+    child_file = parent_dir / f"{parent_id}t01-cli-spec.md"
+    assert child_file.exists()
+
+
+def test_add_detailed_subtask_parent_readme_has_link(parent_id: str) -> None:
+    assert_invoke(
+        app, ["add", parent_id, "Write CLI spec", "--details", "Cover all commands"]
+    )
+    parent_dir = next(Path("planning").glob(f"{parent_id}-*/"))
+    readme = (parent_dir / "README.md").read_text()
+    assert f"[{parent_id}t01](" in readme
+
+
+def test_add_inline_then_detailed_subtask(parent_id: str) -> None:
+    assert_invoke(app, ["add", parent_id, "First inline"])
+    assert_invoke(
+        app, ["add", parent_id, "Second detailed", "--details", "Description"]
+    )
+    parent_dir = next(Path("planning").glob(f"{parent_id}-*/"))
+    readme = (parent_dir / "README.md").read_text()
+    # inline subtask rendered without link
+    assert f"- [ ] {parent_id}t01: First inline" in readme
+    # detailed subtask rendered with link
+    assert f"[{parent_id}t02](" in readme
+
+
+def test_add_detailed_subtask_child_parses_correctly(parent_id: str) -> None:
+    assert_invoke(
+        app, ["add", parent_id, "Write CLI spec", "--details", "Cover all commands"]
+    )
+    parent_dir = next(Path("planning").glob(f"{parent_id}-*/"))
+    child_file = next(parent_dir.glob(f"{parent_id}t01-*.md"))
+    child = parse_task_file(child_file)
+    assert child.id == f"{parent_id}t01"
+    assert child.title == "Write CLI spec"
+    assert child.description == "Cover all commands"
+    assert child.status == TaskStatus.PENDING

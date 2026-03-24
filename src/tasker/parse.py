@@ -8,6 +8,11 @@ from .exceptions import TaskValidateError
 # ID: s<digits> or s<digits>t<digits> (t appears once; each level adds two digits)
 # Cancelled tasks: ~~s01t01: Title~~ (new) or s01t01: ~~Title~~ (legacy)
 _SUBTASK_RE = re.compile(r"^- \[(.)\] (?:~~)?(s\d+t(?:\d{2})+): (.+?)(?:~~)?$")
+# Link-style: - [ ] [s01t01](s01t01-slug.md): Title
+# or: - [ ] [s01t01](s01t01-slug/): Title
+_LINK_SUBTASK_RE = re.compile(
+    r"^- \[(.)\] (?:~~)?\[(s\d+t(?:\d{2})+)\]\(([^)]+)\): (.+?)(?:~~)?$"
+)
 _CHECKBOX_STATUS = {
     " ": TaskStatus.PENDING,
     "~": TaskStatus.IN_PROGRESS,
@@ -111,6 +116,64 @@ class _ParsedContent(NamedTuple):
     subtasks: list[Task]
 
 
+def _parse_subtask_line(line: str) -> Task | None:
+    # Try link-style first: - [ ] [s01t01](s01t01-slug.md): Title
+    ml = _LINK_SUBTASK_RE.match(line)
+    if ml:
+        checkbox, task_id, link_target, task_title = (
+            ml.group(1),
+            ml.group(2),
+            ml.group(3),
+            ml.group(4),
+        )
+        sub_status = _resolve_subtask_status(checkbox, line, task_title)
+        task_title = _strip_strikethrough(task_title, line)
+        extended = link_target.endswith("/")
+        # extract slug from link target
+        ref_str = link_target.rstrip("/").removesuffix(".md")
+        ref = parse_task_ref(ref_str)
+        return Task(
+            id=task_id,
+            slug=ref.slug,
+            extended=extended,
+            title=task_title,
+            status=sub_status,
+            subtasks=[],
+        )
+
+    # Inline style: - [ ] s01t01: Title
+    m = _SUBTASK_RE.match(line)
+    if m:
+        checkbox, task_id, task_title = m.group(1), m.group(2), m.group(3)
+        sub_status = _resolve_subtask_status(checkbox, line, task_title)
+        task_title = _strip_strikethrough(task_title, line)
+        return Task(
+            id=task_id,
+            title=task_title,
+            status=sub_status,
+        )
+
+    return None
+
+
+def _resolve_subtask_status(checkbox: str, line: str, title: str) -> TaskStatus:
+    status = _CHECKBOX_STATUS.get(checkbox, TaskStatus.PENDING)
+    if "~~" in line:
+        status = TaskStatus.CANCELLED
+    return status
+
+
+def _strip_strikethrough(title: str, line: str) -> str:
+    if "~~" not in line:
+        return title
+    # Strip legacy title-only strikethrough markers
+    if title.startswith("~~") and title.endswith("~~"):
+        return title[2:-2]
+    if title.startswith("~~"):
+        return title[2:]
+    return title
+
+
 def _parse_content(content: str, *, task_ref: str) -> _ParsedContent:
     lines = content.splitlines()
 
@@ -165,25 +228,9 @@ def _parse_content(content: str, *, task_ref: str) -> _ParsedContent:
     subtasks: list[Task] = []
     if subtasks_idx is not None:
         for line in body[subtasks_idx + 1 :]:
-            m = _SUBTASK_RE.match(line)
-            if m:
-                checkbox, task_id, task_title = m.group(1), m.group(2), m.group(3)
-                sub_status = _CHECKBOX_STATUS.get(checkbox, TaskStatus.PENDING)
-                # Strikethrough around id+title (or legacy: title only)
-                if "~~" in line:
-                    sub_status = TaskStatus.CANCELLED
-                    # Strip legacy title-only strikethrough markers
-                    if task_title.startswith("~~") and task_title.endswith("~~"):
-                        task_title = task_title[2:-2]
-                    elif task_title.startswith("~~"):
-                        task_title = task_title[2:]
-                subtasks.append(
-                    Task(
-                        id=task_id,
-                        title=task_title,
-                        status=sub_status,
-                    )
-                )
+            parsed_sub = _parse_subtask_line(line)
+            if parsed_sub is not None:
+                subtasks.append(parsed_sub)
 
     return _ParsedContent(
         id=id_val,

@@ -13,10 +13,19 @@ status: {{ status }}
 ## Subtasks
 
 {% for subtask in subtasks %}
+{% if subtask.is_inline %}
 {% if subtask.status.value == "cancelled" %}
 - [{{ subtask.status | checkbox }}] ~~{{ subtask.id }}: {{ subtask.title }}~~
 {% else %}
 - [{{ subtask.status | checkbox }}] {{ subtask.id }}: {{ subtask.title }}
+{% endif %}
+{% else %}
+{% set link = subtask.ref ~ "/" if subtask.extended else subtask.ref ~ ".md" %}
+{% if subtask.status.value == "cancelled" %}
+- [{{ subtask.status | checkbox }}] ~~[{{ subtask.id }}]({{ link }}): {{ subtask.title }}~~
+{% else %}
+- [{{ subtask.status | checkbox }}] [{{ subtask.id }}]({{ link }}): {{ subtask.title }}
+{% endif %}
 {% endif %}
 {% endfor %}
 {% endif %}

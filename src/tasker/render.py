@@ -2,7 +2,7 @@ from pathlib import Path
 
 from jinja2 import Environment, PackageLoader
 
-from .base_types import EXTENDED_TASK_FILENAME, Task, TaskStatus, is_root_task_id
+from .base_types import EXTENDED_TASK_FILENAME, Task, TaskStatus
 
 _CHECKBOX = {
     TaskStatus.PENDING: " ",
@@ -37,10 +37,6 @@ def render_task(task: Task) -> str:
 
 
 def build_task_file_path(root: Path, task: Task) -> Path:
-    if not is_root_task_id(task.id):
-        # need to build nested path from root
-        raise NotImplementedError("nested tasks are not supported yet")
-
     if not task.extended:
         return root / f"{task.ref}.md"
     return root / task.ref / EXTENDED_TASK_FILENAME

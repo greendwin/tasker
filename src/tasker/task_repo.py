@@ -65,18 +65,33 @@ class TaskRepo:
 
         return task
 
-    def add_subtask(self, parent: Task, *, title: str) -> Task:
+    def add_subtask(
+        self,
+        parent: Task,
+        *,
+        title: str,
+        description: str | None = None,
+        slug: str | None = None,
+    ) -> Task:
         title = title[:1].upper() + title[1:]
 
         if parent.is_inline:
             raise NotImplementedError("Task upgrades are not supported yet")
 
         child_id = self._next_child_id(parent)
+
+        if description is not None and slug is None:
+            # generate slug (i.e. with description task cannot be inline)
+            slug = generate_slug(title)
+
         subtask = Task(
             id=child_id,
+            slug=slug,
             title=title,
+            description=description,
             status=TaskStatus.PENDING,
         )
+
         parent.subtasks.append(subtask)
         self._tasks[child_id] = subtask
         self._update_parents_status(subtask)
@@ -160,24 +175,34 @@ class TaskRepo:
 
     def flush_to_disk(self) -> None:
         for task in self._root_tasks.values():
-            rendered = render_task(task)
-            prev = self._disk_state.get(task.id)
-            was_extended = prev.extended if prev else task.extended
-            prev_content = prev.content if prev else ""
-            upgraded = not was_extended and task.extended
-            content_changed = rendered != prev_content
+            self._flush_task(self.root, task)
 
-            if upgraded:
-                # upgraded from basic to extended — remove old .md file
-                old_path = self.root / f"{task.ref}.md"
-                if old_path.exists():
-                    old_path.unlink()
+    def _flush_task(self, root: Path, task: Task) -> None:
+        rendered = render_task(task)
+        prev = self._disk_state.get(task.id)
+        was_extended = prev.extended if prev else task.extended
+        prev_content = prev.content if prev else ""
+        upgraded = not was_extended and task.extended
+        content_changed = rendered != prev_content
 
-            if content_changed or upgraded:
-                write_task_file(self.root, task, content=rendered)
-                self._disk_state[task.id] = _DiskState(
-                    content=rendered, extended=task.extended
-                )
+        if upgraded:
+            # upgraded from basic to extended — remove old .md file
+            old_path = root / f"{task.ref}.md"
+            if old_path.exists():
+                old_path.unlink()
+
+        if content_changed or upgraded:
+            write_task_file(root, task, content=rendered)
+            self._disk_state[task.id] = _DiskState(
+                content=rendered, extended=task.extended
+            )
+
+        # recursively flush file-backed subtasks
+        if task.extended:
+            subtask_root = root / task.ref
+            for subtask in task.subtasks:
+                if not subtask.is_inline:
+                    self._flush_task(subtask_root, subtask)
 
     def _load_root_task(self, root_id: str) -> None:
         assert root_id not in self._root_tasks
