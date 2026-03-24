@@ -193,7 +193,7 @@ def test_done_already_done_nonleaf_json_succeeds(story_id: str) -> None:
     assert_invoke(app, ["done", "--force", story_id])
     result = assert_invoke(app, ["--json-output", "done", story_id])
     data = json.loads(result.output)
-    assert data["task_ref"] == f"{story_id}-my-story"
+    assert data["task_refs"] == [f"{story_id}-my-story"]
 
 
 # --- idempotent flush on manual edit ---

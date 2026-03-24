@@ -1,0 +1,166 @@
+"""Tests for passing multiple task refs to status commands."""
+
+import json
+from pathlib import Path
+
+import pytest
+
+from tasker.base_types import TaskStatus
+from tasker.main import app
+from tasker.parse import parse_task_file
+
+from .helpers import assert_invoke, create_task
+
+
+@pytest.fixture()
+def story_id() -> str:
+    return create_task("My story")
+
+
+# --- start ---
+
+
+def test_start_multiple_tasks(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    result = assert_invoke(app, ["start", f"{story_id}t01", f"{story_id}t02"])
+    assert f"{story_id}t01" in result.output
+    assert f"{story_id}t02" in result.output
+
+
+def test_start_multiple_updates_disk(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    assert_invoke(app, ["start", f"{story_id}t01", f"{story_id}t02"])
+    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task = parse_task_file(task_file)
+    assert task.subtasks[0].status == TaskStatus.IN_PROGRESS
+    assert task.subtasks[1].status == TaskStatus.IN_PROGRESS
+
+
+def test_start_multiple_with_already_started(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    assert_invoke(app, ["start", f"{story_id}t01"])
+    result = assert_invoke(app, ["start", f"{story_id}t01", f"{story_id}t02"])
+    assert "already started" in result.output
+    assert f"{story_id}t02" in result.output
+
+
+# --- done ---
+
+
+def test_done_multiple_tasks(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    result = assert_invoke(app, ["done", f"{story_id}t01", f"{story_id}t02"])
+    assert f"{story_id}t01" in result.output
+    assert f"{story_id}t02" in result.output
+
+
+def test_done_multiple_updates_disk(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    assert_invoke(app, ["done", f"{story_id}t01", f"{story_id}t02"])
+    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task = parse_task_file(task_file)
+    assert task.subtasks[0].status == TaskStatus.DONE
+    assert task.subtasks[1].status == TaskStatus.DONE
+    assert task.status == TaskStatus.DONE
+
+
+def test_done_multiple_with_already_finished(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    assert_invoke(app, ["done", f"{story_id}t01"])
+    result = assert_invoke(app, ["done", f"{story_id}t01", f"{story_id}t02"])
+    assert "already finished" in result.output
+    assert f"{story_id}t02" in result.output
+
+
+# --- cancel ---
+
+
+def test_cancel_multiple_tasks(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    result = assert_invoke(app, ["cancel", f"{story_id}t01", f"{story_id}t02"])
+    assert f"{story_id}t01" in result.output
+    assert f"{story_id}t02" in result.output
+
+
+def test_cancel_multiple_updates_disk(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    assert_invoke(app, ["cancel", f"{story_id}t01", f"{story_id}t02"])
+    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task = parse_task_file(task_file)
+    assert task.subtasks[0].status == TaskStatus.CANCELLED
+    assert task.subtasks[1].status == TaskStatus.CANCELLED
+
+
+def test_cancel_multiple_with_already_cancelled(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    assert_invoke(app, ["cancel", f"{story_id}t01"])
+    result = assert_invoke(app, ["cancel", f"{story_id}t01", f"{story_id}t02"])
+    assert "already cancelled" in result.output
+    assert f"{story_id}t02" in result.output
+
+
+# --- reset ---
+
+
+def test_reset_multiple_tasks(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    assert_invoke(app, ["start", f"{story_id}t01"])
+    assert_invoke(app, ["start", f"{story_id}t02"])
+    result = assert_invoke(app, ["reset", f"{story_id}t01", f"{story_id}t02"])
+    assert f"{story_id}t01" in result.output
+    assert f"{story_id}t02" in result.output
+
+
+def test_reset_multiple_updates_disk(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    assert_invoke(app, ["start", f"{story_id}t01"])
+    assert_invoke(app, ["start", f"{story_id}t02"])
+    assert_invoke(app, ["reset", f"{story_id}t01", f"{story_id}t02"])
+    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task = parse_task_file(task_file)
+    assert task.subtasks[0].status == TaskStatus.PENDING
+    assert task.subtasks[1].status == TaskStatus.PENDING
+    assert task.status == TaskStatus.PENDING
+
+
+def test_reset_multiple_with_already_pending(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    assert_invoke(app, ["start", f"{story_id}t02"])
+    result = assert_invoke(app, ["reset", f"{story_id}t01", f"{story_id}t02"])
+    assert "already pending" in result.output
+    assert f"{story_id}t02" in result.output
+
+
+# --- JSON output with multiple refs ---
+
+
+def test_json_start_multiple(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    result = assert_invoke(
+        app, ["--json-output", "start", f"{story_id}t01", f"{story_id}t02"]
+    )
+    data = json.loads(result.output)
+    assert data["task_refs"] == [f"{story_id}t01", f"{story_id}t02"]
+
+
+def test_json_done_multiple(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    result = assert_invoke(
+        app, ["--json-output", "done", f"{story_id}t01", f"{story_id}t02"]
+    )
+    data = json.loads(result.output)
+    assert data["task_refs"] == [f"{story_id}t01", f"{story_id}t02"]

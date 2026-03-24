@@ -224,7 +224,7 @@ def test_json_cancel_outputs_task_ref(story_id: str) -> None:
     task_id = f"{story_id}t01"
     result = assert_invoke(app, ["--json-output", "cancel", task_id])
     data = json.loads(result.output)
-    assert data["task_ref"] == task_id
+    assert data["task_refs"] == [task_id]
 
 
 def test_json_cancel_force_includes_forced_task_ids(
@@ -265,7 +265,7 @@ def test_cancel_already_cancelled_nonleaf_json_succeeds(
     assert_invoke(app, ["cancel", "--force", story_id])
     result = assert_invoke(app, ["--json-output", "cancel", story_id])
     data = json.loads(result.output)
-    assert data["task_ref"] == f"{story_id}-my-story"
+    assert data["task_refs"] == [f"{story_id}-my-story"]
 
 
 # --- idempotent flush on manual edit ---

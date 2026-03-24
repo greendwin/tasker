@@ -133,7 +133,7 @@ def test_json_reset_outputs_task_ref(story_id: str) -> None:
     assert_invoke(app, ["start", task_id])
     result = assert_invoke(app, ["--json-output", "reset", task_id])
     data = json.loads(result.output)
-    assert data["task_ref"] == task_id
+    assert data["task_refs"] == [task_id]
 
 
 def test_json_reset_nonexistent_outputs_error() -> None:
@@ -147,7 +147,7 @@ def test_json_reset_already_pending(story_id: str) -> None:
     task_id = f"{story_id}t01"
     result = assert_invoke(app, ["--json-output", "reset", task_id])
     data = json.loads(result.output)
-    assert data["task_ref"] == task_id
+    assert data["task_refs"] == [task_id]
 
 
 # --- idempotent flush on manual edit ---

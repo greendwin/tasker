@@ -159,7 +159,7 @@ def test_json_start_outputs_task_ref() -> None:
     result = _runner.invoke(app, ["--json-output", "start", "s01t01"])
     assert result.exit_code == 0
     data = _parse_json(result.output)
-    assert data["task_ref"] == "s01t01"
+    assert data["task_refs"] == ["s01t01"]
 
 
 def test_json_start_nonleaf_outputs_error() -> None:
@@ -187,7 +187,7 @@ def test_json_done_outputs_task_ref() -> None:
     result = _runner.invoke(app, ["--json-output", "done", "s01t01"])
     assert result.exit_code == 0
     data = _parse_json(result.output)
-    assert data["task_ref"] == "s01t01"
+    assert data["task_refs"] == ["s01t01"]
 
 
 def test_json_done_nonleaf_outputs_error() -> None:
@@ -206,7 +206,7 @@ def test_json_done_force_outputs_task_ref() -> None:
     result = _runner.invoke(app, ["--json-output", "done", "--force", "s01"])
     assert result.exit_code == 0
     data = _parse_json(result.output)
-    assert data["task_ref"] == "s01-my-story"
+    assert data["task_refs"] == ["s01-my-story"]
 
 
 def test_json_done_force_includes_forced_task_ids() -> None:

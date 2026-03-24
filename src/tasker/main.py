@@ -7,7 +7,7 @@ from typer_di import Depends, TyperDI
 
 from tasker.base_types import FileTask, TaskStatus, is_nonleaf_task
 from tasker.task_repo import TaskRepo
-from tasker.utils import console
+from tasker.utils import JsonAppend, console
 
 app = TyperDI(
     name="tasker",
@@ -125,39 +125,43 @@ def cmd_add_many_tasks(
 @app.command("start")
 def cmd_start_task(
     *,
-    task_ref: Annotated[str, typer.Argument(help="Task ID to mark in-progress.")],
+    task_refs: Annotated[
+        list[str], typer.Argument(help="Task ID(s) to mark in-progress.")
+    ],
     repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
-        task = repo.resolve_ref(task_ref)
+        for task_ref in task_refs:
+            task = repo.resolve_ref(task_ref)
 
-        if task.status == TaskStatus.IN_PROGRESS:
-            # resave tasks in case of outdated statuses
+            if task.status == TaskStatus.IN_PROGRESS:
+                # resave tasks in case of outdated statuses
+                repo.flush_to_disk()
+
+                console.print(
+                    f"[green]Task [blue]{task.ref}[/blue]"
+                    " was already started[/green]",
+                    json_output={"task_refs": JsonAppend(task.ref)},
+                )
+                continue
+
+            if not console.json_output and is_nonleaf_task(task):
+                _report_starting_nonleaf_task(task)
+                raise typer.Exit(1)
+
+            prev_status = task.status
+            repo.start_task(task)
             repo.flush_to_disk()
 
+            if prev_status == TaskStatus.DONE:
+                action = "restarted"
+            else:
+                action = "started"
+
             console.print(
-                f"[green]Task [blue]{task.ref}[/blue] was already started[/green]",
-                json_output={"task_ref": task.ref},
+                f"[green]Task [blue]{task.ref}[/blue] {action}[/green]",
+                json_output={"task_refs": JsonAppend(task.ref)},
             )
-            return
-
-        if not console.json_output and is_nonleaf_task(task):
-            _report_starting_nonleaf_task(task)
-            raise typer.Exit(1)
-
-        prev_status = task.status
-        repo.start_task(task)
-        repo.flush_to_disk()
-
-        if prev_status == TaskStatus.DONE:
-            action = "restarted"
-        else:
-            action = "started"
-
-        console.print(
-            f"[green]Task [blue]{task.ref}[/blue] {action}[/green]",
-            json_output={"task_ref": task.ref},
-        )
 
 
 def _report_starting_nonleaf_task(task: FileTask) -> None:
@@ -187,33 +191,37 @@ def _report_starting_nonleaf_task(task: FileTask) -> None:
 @app.command("reset")
 def cmd_reset_task(
     *,
-    task_ref: Annotated[str, typer.Argument(help="Task ID to reset to pending.")],
+    task_refs: Annotated[
+        list[str], typer.Argument(help="Task ID(s) to reset to pending.")
+    ],
     repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
-        task = repo.resolve_ref(task_ref)
+        for task_ref in task_refs:
+            task = repo.resolve_ref(task_ref)
 
-        if task.status == TaskStatus.PENDING:
-            # resave tasks in case of outdated statuses
+            if task.status == TaskStatus.PENDING:
+                # resave tasks in case of outdated statuses
+                repo.flush_to_disk()
+
+                console.print(
+                    f"[green]Task [blue]{task.ref}[/blue]"
+                    " was already pending[/green]",
+                    json_output={"task_refs": JsonAppend(task.ref)},
+                )
+                continue
+
+            if not console.json_output and is_nonleaf_task(task):
+                _report_resetting_nonleaf_task(task)
+                raise typer.Exit(1)
+
+            repo.reset_task(task)
             repo.flush_to_disk()
 
             console.print(
-                f"[green]Task [blue]{task.ref}[/blue] was already pending[/green]",
-                json_output={"task_ref": task.ref},
+                f"[green]Task [blue]{task.ref}[/blue] reset to pending[/green]",
+                json_output={"task_refs": JsonAppend(task.ref)},
             )
-            return
-
-        if not console.json_output and is_nonleaf_task(task):
-            _report_resetting_nonleaf_task(task)
-            raise typer.Exit(1)
-
-        repo.reset_task(task)
-        repo.flush_to_disk()
-
-        console.print(
-            f"[green]Task [blue]{task.ref}[/blue] reset to pending[/green]",
-            json_output={"task_ref": task.ref},
-        )
 
 
 def _report_resetting_nonleaf_task(task: FileTask) -> None:
@@ -226,7 +234,7 @@ def _report_resetting_nonleaf_task(task: FileTask) -> None:
 @app.command("cancel")
 def cmd_cancel_task(
     *,
-    task_ref: Annotated[str, typer.Argument(help="Task ID to cancel.")],
+    task_refs: Annotated[list[str], typer.Argument(help="Task ID(s) to cancel.")],
     force: Annotated[
         bool,
         typer.Option("--force", help="Force cancel all open subtasks."),
@@ -234,39 +242,41 @@ def cmd_cancel_task(
     repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
-        task = repo.resolve_ref(task_ref)
+        for task_ref in task_refs:
+            task = repo.resolve_ref(task_ref)
 
-        if task.status == TaskStatus.CANCELLED:
-            # resave tasks in case of outdated statuses
+            if task.status == TaskStatus.CANCELLED:
+                # resave tasks in case of outdated statuses
+                repo.flush_to_disk()
+
+                console.print(
+                    f"[green]Task [blue]{task.ref}[/blue]"
+                    " was already cancelled[/green]",
+                    json_output={"task_refs": JsonAppend(task.ref)},
+                )
+                continue
+
+            if not force and not console.json_output and is_nonleaf_task(task):
+                _report_cancelling_nonleaf_task(task)
+                raise typer.Exit(1)
+
+            forced = repo.cancel_task(task, force=force)
             repo.flush_to_disk()
 
+            if forced:
+                console.print("[yellow]Forcibly cancelled subtasks:[/yellow]")
+                for t in forced:
+                    console.print(
+                        f"  [blue]{t.id}[/blue]: {t.title}",
+                        json_output={
+                            "forced_task_ids": JsonAppend(t.id),
+                        },
+                    )
+
             console.print(
-                f"[green]Task [blue]{task.ref}[/blue] was already cancelled[/green]",
-                json_output={"task_ref": task.ref},
+                f"[green]Task [blue]{task.ref}[/blue] cancelled[/green]",
+                json_output={"task_refs": JsonAppend(task.ref)},
             )
-            return
-
-        if not force and not console.json_output and is_nonleaf_task(task):
-            _report_cancelling_nonleaf_task(task)
-            raise typer.Exit(1)
-
-        forced = repo.cancel_task(task, force=force)
-        repo.flush_to_disk()
-
-        if forced:
-            console.print(
-                "[yellow]Forcibly cancelled subtasks:[/yellow]",
-                json_output={
-                    "forced_task_ids": [t.id for t in forced],
-                },
-            )
-            for t in forced:
-                console.print(f"  [blue]{t.id}[/blue]: {t.title}")
-
-        console.print(
-            f"[green]Task [blue]{task.ref}[/blue] cancelled[/green]",
-            json_output={"task_ref": task.ref},
-        )
 
 
 def _report_cancelling_nonleaf_task(
@@ -292,7 +302,7 @@ def _report_cancelling_nonleaf_task(
 @app.command("done")
 def cmd_done_task(
     *,
-    task_ref: Annotated[str, typer.Argument(help="Task ID to mark done.")],
+    task_refs: Annotated[list[str], typer.Argument(help="Task ID(s) to mark done.")],
     force: Annotated[
         bool,
         typer.Option("--force", help="Force close all open subtasks."),
@@ -300,39 +310,41 @@ def cmd_done_task(
     repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
-        task = repo.resolve_ref(task_ref)
+        for task_ref in task_refs:
+            task = repo.resolve_ref(task_ref)
 
-        if task.status == TaskStatus.DONE:
-            # resave tasks in case of outdated statuses
+            if task.status == TaskStatus.DONE:
+                # resave tasks in case of outdated statuses
+                repo.flush_to_disk()
+
+                console.print(
+                    f"[green]Task [blue]{task.ref}[/blue]"
+                    " was already finished[/green]",
+                    json_output={"task_refs": JsonAppend(task.ref)},
+                )
+                continue
+
+            if not force and not console.json_output and is_nonleaf_task(task):
+                _report_finishing_nonleaf_task(task)
+                raise typer.Exit(1)
+
+            forced = repo.finish_task(task, force=force)
             repo.flush_to_disk()
 
+            if forced:
+                console.print("[yellow]Forcibly closed subtasks:[/yellow]")
+                for t in forced:
+                    console.print(
+                        f"  [blue]{t.id}[/blue]: {t.title}",
+                        json_output={
+                            "forced_task_ids": JsonAppend(t.id),
+                        },
+                    )
+
             console.print(
-                f"[green]Task [blue]{task.ref}[/blue] was already finished[/green]",
-                json_output={"task_ref": task.ref},
+                f"[green]Task [blue]{task.ref}[/blue] finished[/green]",
+                json_output={"task_refs": JsonAppend(task.ref)},
             )
-            return
-
-        if not force and not console.json_output and is_nonleaf_task(task):
-            _report_finishing_nonleaf_task(task)
-            raise typer.Exit(1)
-
-        forced = repo.finish_task(task, force=force)
-        repo.flush_to_disk()
-
-        if forced:
-            console.print(
-                "[yellow]Forcibly closed subtasks:[/yellow]",
-                json_output={
-                    "forced_task_ids": [t.id for t in forced],
-                },
-            )
-            for t in forced:
-                console.print(f"  [blue]{t.id}[/blue]: {t.title}")
-
-        console.print(
-            f"[green]Task [blue]{task.ref}[/blue] finished[/green]",
-            json_output={"task_ref": task.ref},
-        )
 
 
 def _report_finishing_nonleaf_task(task: FileTask) -> None:

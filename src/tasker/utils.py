@@ -9,6 +9,15 @@ from rich.console import Console
 from .exceptions import TaskerError
 
 
+class JsonAppend:
+    """Marker that tells OutputContext to append the value to a list."""
+
+    __slots__ = ("value",)
+
+    def __init__(self, value: Any) -> None:
+        self.value = value
+
+
 class OutputContext:
     debug: bool = False
     json_output: bool = False
@@ -22,6 +31,15 @@ class OutputContext:
     ) -> None:
         if json_output:
             for k, v in json_output.items():
+                if isinstance(v, JsonAppend):
+                    arr = self._json_output_obj.setdefault(k, [])
+                    assert isinstance(arr, list), f"json_output key {k!r} is not a list"
+                    arr.append(v.value)
+                    continue
+
+                assert (
+                    k not in self._json_output_obj
+                ), f"json_output key {k!r} already set"
                 self._json_output_obj[k] = v
 
         if not self.json_output:
