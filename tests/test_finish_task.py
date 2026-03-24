@@ -194,3 +194,30 @@ def test_done_already_done_nonleaf_json_succeeds(story_id: str) -> None:
     result = assert_invoke(app, ["--json-output", "done", story_id])
     data = json.loads(result.output)
     assert data["task_ref"] == f"{story_id}-my-story"
+
+
+# --- idempotent flush on manual edit ---
+
+
+def test_done_idempotent_flushes_corrected_statuses(story_id: str) -> None:
+    """Manual edit: mark subtask done, but parent still pending on disk.
+
+    Running `done` on the subtask is idempotent (already done), but
+    the corrected parent status must still be flushed to disk.
+    """
+    assert_invoke(app, ["add", story_id, "Task one"])
+    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+
+    # simulate manual edit: mark subtask done but leave parent pending
+    content = task_file.read_text()
+    patched = content.replace("- [ ]", "- [x]")
+    assert "status: pending" in patched
+    task_file.write_text(patched)
+
+    # idempotent done on already-done subtask
+    result = assert_invoke(app, ["done", f"{story_id}t01"])
+    assert "already finished" in result.output
+
+    # parent status must now be corrected on disk
+    updated = task_file.read_text()
+    assert "status: done" in updated

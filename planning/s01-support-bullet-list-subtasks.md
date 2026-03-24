@@ -19,4 +19,4 @@ Implement subtasks in bullet list
 - [x] s01t04: Better task validation with correct errors
 - [x] s01t09: support batch mode for bullet list creation
 - [~] s01t10: BUG: Update parent issue status when adding subtasks
-- [ ] s01t11: Validate all statuses on idempotent updates - in case of manual edits
+- [x] s01t11: Validate all statuses on idempotent updates - in case of manual edits

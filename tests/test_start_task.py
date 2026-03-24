@@ -154,3 +154,30 @@ def test_start_in_progress_parent_json_succeeds(story_id: str) -> None:
     result = assert_invoke(app, ["--json-output", "start", story_id])
     data = json.loads(result.output)
     assert data["task_ref"] == f"{story_id}-my-story"
+
+
+# --- idempotent flush on manual edit ---
+
+
+def test_start_idempotent_flushes_corrected_statuses(story_id: str) -> None:
+    """Manual edit: mark subtask in-progress, but parent still pending on disk.
+
+    Running `start` on the subtask is idempotent (already in-progress), but
+    the corrected parent status must still be flushed to disk.
+    """
+    assert_invoke(app, ["add", story_id, "Task one"])
+    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+
+    # simulate manual edit: mark subtask in-progress but leave parent pending
+    content = task_file.read_text()
+    patched = content.replace("- [ ]", "- [~]")
+    assert "status: pending" in patched
+    task_file.write_text(patched)
+
+    # idempotent start on already-in-progress subtask
+    result = assert_invoke(app, ["start", f"{story_id}t01"])
+    assert "already started" in result.output
+
+    # parent status must now be corrected on disk
+    updated = task_file.read_text()
+    assert "status: in-progress" in updated

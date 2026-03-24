@@ -132,6 +132,9 @@ def cmd_start_task(
         task = repo.resolve_ref(task_ref)
 
         if task.status == TaskStatus.IN_PROGRESS:
+            # resave tasks in case of outdated statuses
+            repo.flush_to_disk()
+
             console.print(
                 f"[green]Task [blue]{task.ref}[/blue] was already started[/green]",
                 json_output={"task_ref": task.ref},
@@ -195,6 +198,9 @@ def cmd_cancel_task(
         task = repo.resolve_ref(task_ref)
 
         if task.status == TaskStatus.CANCELLED:
+            # resave tasks in case of outdated statuses
+            repo.flush_to_disk()
+
             console.print(
                 f"[green]Task [blue]{task.ref}[/blue] was already cancelled[/green]",
                 json_output={"task_ref": task.ref},
@@ -258,6 +264,9 @@ def cmd_done_task(
         task = repo.resolve_ref(task_ref)
 
         if task.status == TaskStatus.DONE:
+            # resave tasks in case of outdated statuses
+            repo.flush_to_disk()
+
             console.print(
                 f"[green]Task [blue]{task.ref}[/blue] was already finished[/green]",
                 json_output={"task_ref": task.ref},
