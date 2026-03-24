@@ -101,6 +101,13 @@ class TaskRepo:
         task.status = TaskStatus.IN_PROGRESS
         self._update_parents_status(task)
 
+    def reset_task(self, task: AnyTask) -> None:
+        if not _is_leaf_task(task):
+            raise TaskHasSubtasksError(task)
+
+        task.status = TaskStatus.PENDING
+        self._update_parents_status(task)
+
     def cancel_task(
         self, task: AnyTask, *, force: bool = False
     ) -> list[AnyTask] | None:

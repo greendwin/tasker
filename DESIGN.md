@@ -135,6 +135,7 @@ Can span multiple paragraphs.
 - [ ] s01t01: pending subtask
 - [~] s01t02: in-progress subtask
 - [x] s01t03: finished subtask
+- [x] ~~s01t04: cancelled subtask~~
 ```
 
 **Front matter** (YAML block between `---` delimiters) — required fields:
@@ -142,7 +143,7 @@ Can span multiple paragraphs.
 | Field | Required | Description |
 |---|---|---|
 | `id` | yes | Task ID (e.g. `s01`, `s01t02`) |
-| `status` | yes | One of `pending`, `in-progress`, `done` |
+| `status` | yes | One of `pending`, `in-progress`, `done`, `cancelled` |
 
 **`## Depends`** — optional section listing task IDs this task depends on, one per line with an optional comment after the ID. Completed dependencies are rendered with strikethrough (~~`s02`~~) to show they no longer block progress.
 
@@ -151,6 +152,7 @@ Can span multiple paragraphs.
 | `pending` | not started |
 | `in-progress` | being worked on |
 | `done` | finished |
+| `cancelled` | cancelled |
 
 **`## Subtasks`** — present in the basic form when it has inline subtasks. Each line is a checkbox entry with the subtask ID and title.
 
@@ -169,6 +171,7 @@ status: in-progress
 - [ ] [s01t01](s01t01-define-task-forms.md): Define task forms
 - [~] [s01t02](s01t02-write-cli-spec/): Write CLI spec
 - [x] [s01t03](s01t03-finished-task.md): Finished task
+- [x] ~~[s01t04](s01t04-cancelled-task.md): Cancelled task~~
 ```
 
 ---
@@ -180,6 +183,7 @@ status: in-progress
 | `- [ ]` | pending |
 | `- [~]` | in-progress |
 | `- [x]` | done |
+| `- [x] ~~…~~` | cancelled (strikethrough whole entry) |
 
 ---
 
@@ -218,7 +222,16 @@ tasker start <task-id>
 tasker done <task-id>
 
 # Force close even with open subtasks
-tasker done <task-id> --force-close
+tasker done <task-id> --force
+
+# Cancel a task
+tasker cancel <task-id>
+
+# Force cancel all open subtasks
+tasker cancel <task-id> --force
+
+# Reset a task back to pending
+tasker reset <task-id>
 ```
 
 ### List and query
@@ -296,8 +309,20 @@ tasker start s01t02-write-cli-spec
 # Close workflow
 tasker done s01t0201
 tasker done s01t02
-# Error: s01t02 has open subtasks. Use --force-close to override.
+# Error: s01t02 has open subtasks. Use --force to override.
 
 tasker done s01t01
 tasker done s01
+
+# Cancel a task
+tasker cancel s01t01
+# → s01t01 cancelled (rendered as strikethrough in subtask list)
+
+# Force cancel a parent with open subtasks
+tasker cancel s01 --force
+# → all open subtasks cancelled, parent cancelled
+
+# Reset a task back to pending
+tasker reset s01t01
+# → s01t01 reset to pending (strikethrough removed if was cancelled)
 ```

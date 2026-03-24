@@ -184,6 +184,45 @@ def _report_starting_nonleaf_task(task: BasicTask | ExtendedTask) -> None:
         console.print(f"  [blue]{t.id}[/blue]: {t.title}")
 
 
+@app.command("reset")
+def cmd_reset_task(
+    *,
+    task_ref: Annotated[str, typer.Argument(help="Task ID to reset to pending.")],
+    repo: TaskRepo = Depends(get_task_repo),
+) -> None:
+    with console.catching_output():
+        task = repo.resolve_ref(task_ref)
+
+        if task.status == TaskStatus.PENDING:
+            # resave tasks in case of outdated statuses
+            repo.flush_to_disk()
+
+            console.print(
+                f"[green]Task [blue]{task.ref}[/blue] was already pending[/green]",
+                json_output={"task_ref": task.ref},
+            )
+            return
+
+        if not console.json_output and is_nonleaf_task(task):
+            _report_resetting_nonleaf_task(task)
+            raise typer.Exit(1)
+
+        repo.reset_task(task)
+        repo.flush_to_disk()
+
+        console.print(
+            f"[green]Task [blue]{task.ref}[/blue] reset to pending[/green]",
+            json_output={"task_ref": task.ref},
+        )
+
+
+def _report_resetting_nonleaf_task(task: BasicTask | ExtendedTask) -> None:
+    console.print(
+        f"[yellow]Task [blue]{task.ref}[/blue] has subtasks"
+        " — its status is managed automatically.[/yellow]"
+    )
+
+
 @app.command("cancel")
 def cmd_cancel_task(
     *,

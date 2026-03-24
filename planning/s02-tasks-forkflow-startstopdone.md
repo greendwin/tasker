@@ -1,6 +1,6 @@
 ---
 id: s02
-status: pending
+status: done
 ---
 
 # Tasks forkflow start-stop-done
@@ -18,8 +18,8 @@ status: pending
 - [x] ~~s02t07: Tell current subtask status when trying to edit subtask with status~~
 - [x] ~~s02t12: TBD: strikethrough task id in bullet list~~
 - [x] ~~s02t33: TBD: sort tasks - done / in-progress / pending~~
-- [ ] s02t02: support all start/stop/done states
-- [ ] s02t03: add 'reset' command
+- [x] s02t02: support all start/stop/done states
+- [x] s02t03: add 'reset' command
 - [x] s02t34: Add 'cancel' command - strikethrough title for such commands; add CANCELLED status
 - [x] s02t35: Print forcibly closed tasks on 'done --force'; also add them to 'json-output'
 - [x] s02t36: Check all commands: trying to change status when it already in that status is not an error
