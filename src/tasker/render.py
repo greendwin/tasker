@@ -14,6 +14,7 @@ _CHECKBOX = {
     TaskStatus.PENDING: " ",
     TaskStatus.IN_PROGRESS: "~",
     TaskStatus.DONE: "x",
+    TaskStatus.CANCELLED: "x",
 }
 
 _jinja = Environment(
@@ -41,7 +42,7 @@ def render_task(task: BasicTask | ExtendedTask) -> str:
     )
 
 
-def task_file_path(root: Path, task: BasicTask | ExtendedTask) -> Path:
+def build_task_file_path(root: Path, task: BasicTask | ExtendedTask) -> Path:
     if not is_root_task_id(task.id):
         # need to build nested path from root
         raise NotImplementedError("nested tasks are not supported yet")
@@ -54,6 +55,6 @@ def task_file_path(root: Path, task: BasicTask | ExtendedTask) -> Path:
 def write_task_file(
     root: Path, task: BasicTask | ExtendedTask, *, content: str
 ) -> None:
-    path = task_file_path(root, task)
+    path = build_task_file_path(root, task)
     path.parent.mkdir(exist_ok=True)
     path.write_text(content)

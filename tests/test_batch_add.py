@@ -3,7 +3,9 @@ from pathlib import Path
 
 import pytest
 
+from tasker.base_types import TaskStatus
 from tasker.main import app
+from tasker.parse import parse_task_file
 
 from .helpers import assert_invoke, create_task
 
@@ -113,3 +115,15 @@ def test_batch_json_empty_input_returns_empty_list(parent_id: str) -> None:
     result = assert_invoke(app, ["--json-output", "add-many", parent_id], input="\n")
     data = json.loads(result.output.strip())
     assert data["task_refs"] == []
+
+
+# --- adding subtasks updates parent status ---
+
+
+def test_batch_add_to_done_parent_reopens_it(parent_id: str) -> None:
+    assert_invoke(app, ["add", parent_id, "First subtask"])
+    assert_invoke(app, ["done", f"{parent_id}t01"])
+    # parent is now done; batch-adding should reopen it
+    assert_invoke(app, ["add-many", parent_id], input="New task\n\n")
+    task = parse_task_file(_task_file(parent_id))
+    assert task.status == TaskStatus.PENDING

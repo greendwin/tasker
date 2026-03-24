@@ -13,6 +13,7 @@ class TaskStatus(str, Enum):
     PENDING = "pending"
     IN_PROGRESS = "in-progress"
     DONE = "done"
+    CANCELLED = "cancelled"
 
 
 class TaskKind(str, Enum):
@@ -26,6 +27,10 @@ class TaskBase(BaseModel):
     id: str  # unique id that can be used to reference a task
     title: str  # short summary of a task
     status: TaskStatus
+
+    @property
+    def is_closed(self) -> bool:
+        return self.status in (TaskStatus.DONE, TaskStatus.CANCELLED)
 
     @property
     def ref(self) -> str:

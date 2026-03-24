@@ -131,11 +131,19 @@ def cmd_start_task(
     with console.catching_output():
         task = repo.resolve_ref(task_ref)
 
+        if task.status == TaskStatus.IN_PROGRESS:
+            # resave tasks in case of outdated statuses
+            repo.flush_to_disk()
+
+            console.print(
+                f"[green]Task [blue]{task.ref}[/blue] was already started[/green]",
+                json_output={"task_ref": task.ref},
+            )
+            return
+
         if not console.json_output and is_nonleaf_task(task):
             _report_starting_nonleaf_task(task)
-
-            # it's ok if task is already in-progress
-            raise typer.Exit(task.status != TaskStatus.IN_PROGRESS)
+            raise typer.Exit(1)
 
         prev_status = task.status
         repo.start_task(task)
@@ -143,8 +151,6 @@ def cmd_start_task(
 
         if prev_status == TaskStatus.DONE:
             action = "restarted"
-        elif prev_status == TaskStatus.IN_PROGRESS:
-            action = "was already started"
         else:
             action = "started"
 
@@ -178,6 +184,72 @@ def _report_starting_nonleaf_task(task: BasicTask | ExtendedTask) -> None:
         console.print(f"  [blue]{t.id}[/blue]: {t.title}")
 
 
+@app.command("cancel")
+def cmd_cancel_task(
+    *,
+    task_ref: Annotated[str, typer.Argument(help="Task ID to cancel.")],
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Force cancel all open subtasks."),
+    ] = False,
+    repo: TaskRepo = Depends(get_task_repo),
+) -> None:
+    with console.catching_output():
+        task = repo.resolve_ref(task_ref)
+
+        if task.status == TaskStatus.CANCELLED:
+            # resave tasks in case of outdated statuses
+            repo.flush_to_disk()
+
+            console.print(
+                f"[green]Task [blue]{task.ref}[/blue] was already cancelled[/green]",
+                json_output={"task_ref": task.ref},
+            )
+            return
+
+        if not force and not console.json_output and is_nonleaf_task(task):
+            _report_cancelling_nonleaf_task(task)
+            raise typer.Exit(1)
+
+        forced = repo.cancel_task(task, force=force)
+        repo.flush_to_disk()
+
+        if forced:
+            console.print(
+                "[yellow]Forcibly cancelled subtasks:[/yellow]",
+                json_output={
+                    "forced_task_ids": [t.id for t in forced],
+                },
+            )
+            for t in forced:
+                console.print(f"  [blue]{t.id}[/blue]: {t.title}")
+
+        console.print(
+            f"[green]Task [blue]{task.ref}[/blue] cancelled[/green]",
+            json_output={"task_ref": task.ref},
+        )
+
+
+def _report_cancelling_nonleaf_task(
+    task: BasicTask | ExtendedTask,
+) -> None:
+    open_tasks = [t for t in task.subtasks if not t.is_closed]
+
+    console.print(
+        f"[yellow]Task [blue]{task.ref}[/blue] has subtasks"
+        " — its status is managed automatically.[/yellow]"
+    )
+
+    if not open_tasks:
+        console.print("All subtasks are already closed.")
+        return
+
+    console.print("Cancel its open subtasks first, or use [bold]--force[/bold].")
+    console.print("\nOpen subtasks:")
+    for t in open_tasks:
+        console.print(f"  [blue]{t.id}[/blue]: {t.title}")
+
+
 @app.command("done")
 def cmd_done_task(
     *,
@@ -191,18 +263,22 @@ def cmd_done_task(
     with console.catching_output():
         task = repo.resolve_ref(task_ref)
 
+        if task.status == TaskStatus.DONE:
+            # resave tasks in case of outdated statuses
+            repo.flush_to_disk()
+
+            console.print(
+                f"[green]Task [blue]{task.ref}[/blue] was already finished[/green]",
+                json_output={"task_ref": task.ref},
+            )
+            return
+
         if not force and not console.json_output and is_nonleaf_task(task):
             _report_finishing_nonleaf_task(task)
             raise typer.Exit(1)
 
-        prev_status = task.status
         forced = repo.finish_task(task, force=force)
         repo.flush_to_disk()
-
-        if prev_status == TaskStatus.DONE:
-            action = "was already finished"
-        else:
-            action = "finished"
 
         if forced:
             console.print(
@@ -215,19 +291,23 @@ def cmd_done_task(
                 console.print(f"  [blue]{t.id}[/blue]: {t.title}")
 
         console.print(
-            f"[green]Task [blue]{task.ref}[/blue] {action}[/green]",
+            f"[green]Task [blue]{task.ref}[/blue] finished[/green]",
             json_output={"task_ref": task.ref},
         )
 
 
 def _report_finishing_nonleaf_task(task: BasicTask | ExtendedTask) -> None:
-    open_tasks = [t for t in task.subtasks if t.status != TaskStatus.DONE]
-    assert len(open_tasks) > 0
+    open_tasks = [t for t in task.subtasks if not t.is_closed]
 
     console.print(
         f"[yellow]Task [blue]{task.ref}[/blue] has subtasks"
         " — its status is managed automatically.[/yellow]"
     )
+
+    if not open_tasks:
+        console.print("All subtasks are already closed.")
+        return
+
     console.print("Finish its open subtasks first, or use [bold]--force[/bold].")
 
     console.print("\nOpen subtasks:")

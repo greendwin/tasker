@@ -2,9 +2,14 @@ from pathlib import Path
 
 import pytest
 
-from tasker.base_types import BasicTask, ExtendedTask, FileTaskBase, TaskStatus
+from tasker.base_types import (
+    BasicTask,
+    ExtendedTask,
+    FileTaskBase,
+    TaskStatus,
+)
 from tasker.exceptions import TaskValidateError
-from tasker.parse import parse_task_file
+from tasker.parse import parse_task, parse_task_file
 from tasker.render import render_task, write_task_file
 
 _DIR = Path("/tmp/tasks")
@@ -200,3 +205,32 @@ def test_parse_invalid_filename_error_has_task_ref() -> None:
     with pytest.raises(TaskValidateError) as exc_info:
         parse_task_file(bad)
     assert exc_info.value.task_ref is not None
+
+
+# --- cancelled subtask strikethrough parsing ---
+
+
+def _make_task_with_subtask_line(subtask_line: str) -> BasicTask | ExtendedTask:
+    content = (
+        "---\nid: s01\nstatus: pending\n---\n\n"
+        "# My task\n\n## Subtasks\n\n" + subtask_line + "\n"
+    )
+    return parse_task(content, task_id="s01", slug="my-task", extended=False)
+
+
+def test_parse_cancelled_subtask_new_format() -> None:
+    task = _make_task_with_subtask_line("- [x] ~~s01t01: My subtask~~")
+    assert task.subtasks[0].status == TaskStatus.CANCELLED
+    assert task.subtasks[0].title == "My subtask"
+
+
+def test_parse_cancelled_subtask_legacy_format() -> None:
+    task = _make_task_with_subtask_line("- [x] s01t01: ~~My subtask~~")
+    assert task.subtasks[0].status == TaskStatus.CANCELLED
+    assert task.subtasks[0].title == "My subtask"
+
+
+def test_parse_non_cancelled_subtask_no_strikethrough() -> None:
+    task = _make_task_with_subtask_line("- [ ] s01t01: My subtask")
+    assert task.subtasks[0].status == TaskStatus.PENDING
+    assert task.subtasks[0].title == "My subtask"
