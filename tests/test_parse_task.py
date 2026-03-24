@@ -3,9 +3,7 @@ from pathlib import Path
 import pytest
 
 from tasker.base_types import (
-    BasicTask,
-    ExtendedTask,
-    FileTaskBase,
+    FileTask,
     TaskStatus,
 )
 from tasker.exceptions import TaskValidateError
@@ -24,7 +22,7 @@ def _write_task(
     _DIR.mkdir(exist_ok=True)
     stem = name.removesuffix(".md")
     task_id, slug = stem.split("-", 1)
-    task = BasicTask(
+    task = FileTask(
         id=task_id,
         slug=slug,
         title=title,
@@ -80,14 +78,16 @@ def test_parse_multiline_description() -> None:
 
 def test_parse_simple_file_is_basic() -> None:
     task = parse_task_file(_write_task("s01-my-task.md", "My task"))
-    assert isinstance(task, BasicTask)
+    assert isinstance(task, FileTask)
+    assert not task.extended
 
 
 def test_parse_detailed_dir() -> None:
     _DIR.mkdir(exist_ok=True)
-    task = ExtendedTask(
+    task = FileTask(
         id="s01",
         slug="my-task",
+        extended=True,
         title="My task",
         status=TaskStatus.PENDING,
         subtasks=[],
@@ -95,14 +95,15 @@ def test_parse_detailed_dir() -> None:
     write_task_file(_DIR, task, content=render_task(task))
 
     parsed = parse_task_file(_DIR / "s01-my-task")
-    assert isinstance(parsed, ExtendedTask)
+    assert isinstance(parsed, FileTask)
+    assert parsed.extended
     assert parsed.id == "s01"
     assert parsed.slug == "my-task"
 
 
 def test_parse_returns_file_task() -> None:
     task = parse_task_file(_write_task("s01-my-task.md", "My task"))
-    assert isinstance(task, FileTaskBase)
+    assert isinstance(task, FileTask)
 
 
 def test_parse_invalid_filename_raises() -> None:
@@ -210,7 +211,7 @@ def test_parse_invalid_filename_error_has_task_ref() -> None:
 # --- cancelled subtask strikethrough parsing ---
 
 
-def _make_task_with_subtask_line(subtask_line: str) -> BasicTask | ExtendedTask:
+def _make_task_with_subtask_line(subtask_line: str) -> FileTask:
     content = (
         "---\nid: s01\nstatus: pending\n---\n\n"
         "# My task\n\n## Subtasks\n\n" + subtask_line + "\n"

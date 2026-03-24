@@ -1,6 +1,6 @@
 ---
 id: s02
-status: done
+status: pending
 ---
 
 # Tasks forkflow start-stop-done
@@ -26,3 +26,4 @@ status: done
 - [x] s02t37: Cancelling all subtasks sets parent to CANCELLED too
 - [x] s02t38: BUG: when cancelling story with done tasks it overrides them - don't cancell already finished tasks, only pending
 - [x] s02t39: Strikethrough whole line including task id
+- [ ] s02t40: Support multiple task refs in all status commands

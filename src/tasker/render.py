@@ -4,8 +4,7 @@ from jinja2 import Environment, PackageLoader
 
 from .base_types import (
     EXTENDED_TASK_FILENAME,
-    BasicTask,
-    ExtendedTask,
+    FileTask,
     TaskStatus,
     is_root_task_id,
 )
@@ -32,7 +31,7 @@ def _to_checkbox(status: TaskStatus) -> str:
 _jinja.filters["checkbox"] = _to_checkbox
 
 
-def render_task(task: BasicTask | ExtendedTask) -> str:
+def render_task(task: FileTask) -> str:
     return _jinja.get_template("task.md.j2").render(
         id=task.id,
         title=task.title,
@@ -42,19 +41,17 @@ def render_task(task: BasicTask | ExtendedTask) -> str:
     )
 
 
-def build_task_file_path(root: Path, task: BasicTask | ExtendedTask) -> Path:
+def build_task_file_path(root: Path, task: FileTask) -> Path:
     if not is_root_task_id(task.id):
         # need to build nested path from root
         raise NotImplementedError("nested tasks are not supported yet")
 
-    if isinstance(task, BasicTask):
+    if not task.extended:
         return root / f"{task.ref}.md"
     return root / task.ref / EXTENDED_TASK_FILENAME
 
 
-def write_task_file(
-    root: Path, task: BasicTask | ExtendedTask, *, content: str
-) -> None:
+def write_task_file(root: Path, task: FileTask, *, content: str) -> None:
     path = build_task_file_path(root, task)
     path.parent.mkdir(exist_ok=True)
     path.write_text(content)

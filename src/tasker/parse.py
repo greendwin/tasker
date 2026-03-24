@@ -5,8 +5,7 @@ from typing import NamedTuple
 from .base_types import (
     EXTENDED_TASK_FILENAME,
     AnyTask,
-    BasicTask,
-    ExtendedTask,
+    FileTask,
     InlineTask,
     TaskStatus,
     build_task_ref,
@@ -91,15 +90,13 @@ def detect_task_type(task_path: Path) -> TaskDetectResult:
     )
 
 
-def parse_task(
-    content: str, *, task_id: str, slug: str, extended: bool
-) -> BasicTask | ExtendedTask:
+def parse_task(content: str, *, task_id: str, slug: str, extended: bool) -> FileTask:
     parsed = _parse_content(content, task_ref=build_task_ref(task_id, slug))
 
-    task_cls = ExtendedTask if extended else BasicTask
-    return task_cls(
+    return FileTask(
         id=parsed.id,
         slug=slug,
+        extended=extended,
         title=parsed.title,
         description=parsed.description,
         status=parsed.status,
@@ -107,7 +104,7 @@ def parse_task(
     )
 
 
-def parse_task_file(path: Path) -> BasicTask | ExtendedTask:
+def parse_task_file(path: Path) -> FileTask:
     tt = detect_task_type(path)
     content = tt.content_path.read_text(encoding="utf-8")
     return parse_task(content, task_id=tt.task_id, slug=tt.slug, extended=tt.extended)

@@ -1,14 +1,7 @@
 import re
 from pathlib import Path
 
-from tasker.base_types import (
-    AnyTask,
-    BasicTask,
-    ExtendedTask,
-    InlineTask,
-    TaskStatus,
-    is_root_task_id,
-)
+from tasker.base_types import AnyTask, FileTask, InlineTask, TaskStatus, is_root_task_id
 from tasker.exceptions import TaskHasSubtasksError, TaskValidateError
 from tasker.parse import detect_task_type, parse_task, parse_task_ref
 from tasker.render import render_task, write_task_file
@@ -22,7 +15,7 @@ def generate_slug(title: str) -> str:
 class TaskRepo:
     def __init__(self, root: Path) -> None:
         self.root = root
-        self._root_tasks: dict[str, BasicTask | ExtendedTask] = {}
+        self._root_tasks: dict[str, FileTask] = {}
         self._tasks: dict[str, AnyTask] = {}
         self._disk_content: dict[str, str] = {}
 
@@ -47,17 +40,17 @@ class TaskRepo:
         description: str | None,
         slug: str | None,
         extended: bool,
-    ) -> BasicTask | ExtendedTask:
+    ) -> FileTask:
         title = title[:1].upper() + title[1:]
         root_id = self._next_child_id(None)
 
         if slug is None:
             slug = generate_slug(title)
 
-        task_type = ExtendedTask if extended else BasicTask
-        task = task_type(
+        task = FileTask(
             id=root_id,
             slug=slug,
+            extended=extended,
             title=title,
             description=description,
             status=TaskStatus.PENDING,
@@ -88,7 +81,7 @@ class TaskRepo:
 
         return subtask
 
-    def _next_child_id(self, parent: BasicTask | ExtendedTask | None) -> str:
+    def _next_child_id(self, parent: FileTask | None) -> str:
         if parent is None:
             return find_next_root_task_id(self.root)
 
@@ -167,6 +160,7 @@ class TaskRepo:
 
             assert not isinstance(parent, InlineTask)
             parent.status = _get_status_from_subtasks(parent)
+            parent.extended = parent.extended or _has_file_subtasks(parent)
             cur_id = parent.id
 
     def flush_to_disk(self) -> None:
@@ -206,9 +200,9 @@ class TaskRepo:
 
         self._root_tasks[root_id] = task
         self._register_tasks(task)
-        _invalidate_task_statuses(task)
+        _invalidate_task_flags(task)
 
-    def _register_tasks(self, task: BasicTask | ExtendedTask) -> None:
+    def _register_tasks(self, task: FileTask) -> None:
         self._tasks[task.id] = task
         for subtask in task.subtasks:
             self._tasks[subtask.id] = subtask
@@ -223,7 +217,7 @@ def find_next_root_task_id(root: Path) -> str:
     return f"s{max(existing, default=0) + 1:02d}"
 
 
-def get_next_subtask_id(parent: BasicTask | ExtendedTask) -> str:
+def get_next_subtask_id(parent: FileTask) -> str:
     child_prefix = parent.id if "t" in parent.id else parent.id + "t"
     existing_nums = [
         int(t.id[len(child_prefix) :])
@@ -240,7 +234,7 @@ def _is_leaf_task(task: AnyTask) -> bool:
     return not task.subtasks
 
 
-def _get_status_from_subtasks(task: BasicTask | ExtendedTask) -> TaskStatus:
+def _get_status_from_subtasks(task: FileTask) -> TaskStatus:
     if not task.subtasks:
         # no subtasks -- kepp status same
         return task.status
@@ -254,12 +248,17 @@ def _get_status_from_subtasks(task: BasicTask | ExtendedTask) -> TaskStatus:
     return TaskStatus.PENDING
 
 
-def _invalidate_task_statuses(root: AnyTask) -> None:
+def _has_file_subtasks(task: FileTask) -> bool:
+    return any(not isinstance(s, InlineTask) for s in task.subtasks)
+
+
+def _invalidate_task_flags(root: AnyTask) -> None:
     if isinstance(root, InlineTask):
         return
 
     for child in root.subtasks:
-        _invalidate_task_statuses(child)
+        _invalidate_task_flags(child)
 
     # update root itself
     root.status = _get_status_from_subtasks(root)
+    root.extended = root.extended or _has_file_subtasks(root)

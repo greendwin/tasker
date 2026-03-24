@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal, TypeAlias
+from typing import TypeAlias
 
 from pydantic import BaseModel
 from typing_extensions import TypeIs, override
@@ -14,12 +14,6 @@ class TaskStatus(str, Enum):
     IN_PROGRESS = "in-progress"
     DONE = "done"
     CANCELLED = "cancelled"
-
-
-class TaskKind(str, Enum):
-    INLINE = "inline"
-    BASIC = "basic"
-    EXTENDED = "extended"
 
 
 class TaskBase(BaseModel):
@@ -37,8 +31,13 @@ class TaskBase(BaseModel):
         return self.id
 
 
-class FileTaskBase(TaskBase):
+class InlineTask(TaskBase):
+    pass
+
+
+class FileTask(TaskBase):
     slug: str
+    extended: bool = False
 
     # task data
     description: str | None = None
@@ -50,19 +49,7 @@ class FileTaskBase(TaskBase):
         return build_task_ref(self.id, self.slug)
 
 
-class InlineTask(TaskBase):
-    kind: Literal[TaskKind.INLINE] = TaskKind.INLINE
-
-
-class BasicTask(FileTaskBase):
-    kind: Literal[TaskKind.BASIC] = TaskKind.BASIC
-
-
-class ExtendedTask(FileTaskBase):
-    kind: Literal[TaskKind.EXTENDED] = TaskKind.EXTENDED
-
-
-AnyTask: TypeAlias = InlineTask | BasicTask | ExtendedTask
+AnyTask: TypeAlias = InlineTask | FileTask
 
 
 def build_task_ref(task_id: str, slug: str) -> str:
@@ -75,7 +62,7 @@ def is_root_task_id(task_id: str) -> bool:
     return "t" not in task_id
 
 
-def is_nonleaf_task(task: AnyTask) -> TypeIs[BasicTask | ExtendedTask]:
+def is_nonleaf_task(task: AnyTask) -> TypeIs[FileTask]:
     if not isinstance(task, InlineTask) and task.subtasks:
         return True
     return False
