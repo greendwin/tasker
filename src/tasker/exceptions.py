@@ -1,6 +1,6 @@
 from typing import Any
 
-from tasker.base_types import AnyTask, InlineTask, TaskStatus
+from tasker.base_types import Task, TaskStatus
 
 
 class TaskerError(Exception):
@@ -16,8 +16,8 @@ class TaskValidateError(TaskerError):
 
 
 class TaskHasSubtasksError(TaskerError):
-    def __init__(self, task: AnyTask) -> None:
-        assert not isinstance(task, InlineTask) and len(task.subtasks) > 0
+    def __init__(self, task: Task) -> None:
+        assert not task.is_inline and len(task.subtasks) > 0
 
         super().__init__(
             f"Task {task.id!r} has subtasks — its status is managed automatically.",

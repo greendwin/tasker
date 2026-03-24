@@ -2,14 +2,7 @@ import re
 from pathlib import Path
 from typing import NamedTuple
 
-from .base_types import (
-    EXTENDED_TASK_FILENAME,
-    AnyTask,
-    FileTask,
-    InlineTask,
-    TaskStatus,
-    build_task_ref,
-)
+from .base_types import EXTENDED_TASK_FILENAME, Task, TaskStatus, build_task_ref
 from .exceptions import TaskValidateError
 
 # ID: s<digits> or s<digits>t<digits> (t appears once; each level adds two digits)
@@ -90,10 +83,10 @@ def detect_task_type(task_path: Path) -> TaskDetectResult:
     )
 
 
-def parse_task(content: str, *, task_id: str, slug: str, extended: bool) -> FileTask:
+def parse_task(content: str, *, task_id: str, slug: str, extended: bool) -> Task:
     parsed = _parse_content(content, task_ref=build_task_ref(task_id, slug))
 
-    return FileTask(
+    return Task(
         id=parsed.id,
         slug=slug,
         extended=extended,
@@ -104,7 +97,7 @@ def parse_task(content: str, *, task_id: str, slug: str, extended: bool) -> File
     )
 
 
-def parse_task_file(path: Path) -> FileTask:
+def parse_task_file(path: Path) -> Task:
     tt = detect_task_type(path)
     content = tt.content_path.read_text(encoding="utf-8")
     return parse_task(content, task_id=tt.task_id, slug=tt.slug, extended=tt.extended)
@@ -115,7 +108,7 @@ class _ParsedContent(NamedTuple):
     title: str
     description: str | None
     status: TaskStatus
-    subtasks: list[AnyTask]
+    subtasks: list[Task]
 
 
 def _parse_content(content: str, *, task_ref: str) -> _ParsedContent:
@@ -169,7 +162,7 @@ def _parse_content(content: str, *, task_ref: str) -> _ParsedContent:
         desc_lines.pop()
     description = "\n".join(desc_lines) or None
 
-    subtasks: list[AnyTask] = []
+    subtasks: list[Task] = []
     if subtasks_idx is not None:
         for line in body[subtasks_idx + 1 :]:
             m = _SUBTASK_RE.match(line)
@@ -185,7 +178,7 @@ def _parse_content(content: str, *, task_ref: str) -> _ParsedContent:
                     elif task_title.startswith("~~"):
                         task_title = task_title[2:]
                 subtasks.append(
-                    InlineTask(
+                    Task(
                         id=task_id,
                         title=task_title,
                         status=sub_status,

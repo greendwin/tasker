@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 import typer
 from typer_di import Depends, TyperDI
 
-from tasker.base_types import FileTask, TaskStatus, is_nonleaf_task
+from tasker.base_types import Task, TaskStatus, is_nonleaf_task
 from tasker.task_repo import TaskRepo
 from tasker.utils import JsonAppend, console
 
@@ -164,7 +164,7 @@ def cmd_start_task(
             )
 
 
-def _report_starting_nonleaf_task(task: FileTask) -> None:
+def _report_starting_nonleaf_task(task: Task) -> None:
     console.print(
         f"[yellow]Task [blue]{task.ref}[/blue] has subtasks"
         " — its status is managed automatically.[/yellow]"
@@ -224,7 +224,7 @@ def cmd_reset_task(
             )
 
 
-def _report_resetting_nonleaf_task(task: FileTask) -> None:
+def _report_resetting_nonleaf_task(task: Task) -> None:
     console.print(
         f"[yellow]Task [blue]{task.ref}[/blue] has subtasks"
         " — its status is managed automatically.[/yellow]"
@@ -280,7 +280,7 @@ def cmd_cancel_task(
 
 
 def _report_cancelling_nonleaf_task(
-    task: FileTask,
+    task: Task,
 ) -> None:
     open_tasks = [t for t in task.subtasks if not t.is_closed]
 
@@ -347,7 +347,7 @@ def cmd_done_task(
             )
 
 
-def _report_finishing_nonleaf_task(task: FileTask) -> None:
+def _report_finishing_nonleaf_task(task: Task) -> None:
     open_tasks = [t for t in task.subtasks if not t.is_closed]
 
     console.print(

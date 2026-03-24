@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import TypeAlias
 
 from pydantic import BaseModel
-from typing_extensions import TypeIs, override
 
 EXTENDED_TASK_FILENAME = "README.md"
 
@@ -16,11 +14,20 @@ class TaskStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class TaskBase(BaseModel):
-    # any task has these fields
+class Task(BaseModel):
     id: str  # unique id that can be used to reference a task
     title: str  # short summary of a task
     status: TaskStatus
+
+    # file-task fields (None/defaults for inline tasks)
+    slug: str | None = None
+    extended: bool = False
+    description: str | None = None
+    subtasks: list[Task] = []
+
+    @property
+    def is_inline(self) -> bool:
+        return self.slug is None
 
     @property
     def is_closed(self) -> bool:
@@ -28,28 +35,9 @@ class TaskBase(BaseModel):
 
     @property
     def ref(self) -> str:
+        if self.slug is not None:
+            return build_task_ref(self.id, self.slug)
         return self.id
-
-
-class InlineTask(TaskBase):
-    pass
-
-
-class FileTask(TaskBase):
-    slug: str
-    extended: bool = False
-
-    # task data
-    description: str | None = None
-    subtasks: list[AnyTask]
-
-    @property
-    @override
-    def ref(self) -> str:
-        return build_task_ref(self.id, self.slug)
-
-
-AnyTask: TypeAlias = InlineTask | FileTask
 
 
 def build_task_ref(task_id: str, slug: str) -> str:
@@ -62,7 +50,7 @@ def is_root_task_id(task_id: str) -> bool:
     return "t" not in task_id
 
 
-def is_nonleaf_task(task: AnyTask) -> TypeIs[FileTask]:
-    if not isinstance(task, InlineTask) and task.subtasks:
+def is_nonleaf_task(task: Task) -> bool:
+    if not task.is_inline and task.subtasks:
         return True
     return False

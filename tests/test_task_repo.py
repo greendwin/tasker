@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pytest
 
-from tasker.base_types import FileTask, InlineTask
 from tasker.exceptions import TaskerError
 from tasker.main import app
 from tasker.render import build_task_file_path
@@ -39,7 +38,7 @@ def test_next_child_id_story_no_subtasks() -> None:
     story_id = create_task("My story")
     repo = make_repo()
     task = repo.resolve_ref(story_id)
-    assert isinstance(task, FileTask)
+    assert not task.is_inline
     assert repo._next_child_id(task) == f"{story_id}t01"
 
 
@@ -49,7 +48,7 @@ def test_next_child_id_story_with_subtasks() -> None:
     assert_invoke(app, ["add", story_id, "Second subtask"])
     repo = make_repo()
     task = repo.resolve_ref(story_id)
-    assert isinstance(task, FileTask)
+    assert not task.is_inline
     assert repo._next_child_id(task) == f"{story_id}t03"
 
 
@@ -59,7 +58,7 @@ def test_next_child_id_accepts_slug_ref() -> None:
     slug_ref = task_file.stem  # e.g. "s01-my-story"
     repo = make_repo()
     task = repo.resolve_ref(slug_ref)
-    assert isinstance(task, FileTask)
+    assert not task.is_inline
     assert repo._next_child_id(task) == f"{story_id}t01"
 
 
@@ -190,7 +189,7 @@ def test_repo_add_subtask() -> None:
     repo = make_repo()
     parent = repo.resolve_ref(story_id)
     child = repo.add_subtask(parent, title="Subtask one")
-    assert isinstance(child, InlineTask)
+    assert child.is_inline
     assert child.id == f"{story_id}t01"
 
 

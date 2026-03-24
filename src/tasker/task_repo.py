@@ -2,7 +2,7 @@ import dataclasses
 import re
 from pathlib import Path
 
-from tasker.base_types import AnyTask, FileTask, InlineTask, TaskStatus, is_root_task_id
+from tasker.base_types import Task, TaskStatus, is_root_task_id
 from tasker.exceptions import TaskHasSubtasksError, TaskValidateError
 from tasker.parse import detect_task_type, parse_task, parse_task_ref
 from tasker.render import render_task, write_task_file
@@ -17,11 +17,11 @@ class _DiskState:
 class TaskRepo:
     def __init__(self, root: Path) -> None:
         self.root = root
-        self._root_tasks: dict[str, FileTask] = {}
-        self._tasks: dict[str, AnyTask] = {}
+        self._root_tasks: dict[str, Task] = {}
+        self._tasks: dict[str, Task] = {}
         self._disk_state: dict[str, _DiskState] = {}
 
-    def resolve_ref(self, task_ref: str) -> AnyTask:
+    def resolve_ref(self, task_ref: str) -> Task:
         ti = parse_task_ref(task_ref)
 
         if ti.root_id not in self._root_tasks:
@@ -42,14 +42,14 @@ class TaskRepo:
         description: str | None,
         slug: str | None,
         extended: bool,
-    ) -> FileTask:
+    ) -> Task:
         title = title[:1].upper() + title[1:]
         root_id = self._next_child_id(None)
 
         if slug is None:
             slug = generate_slug(title)
 
-        task = FileTask(
+        task = Task(
             id=root_id,
             slug=slug,
             extended=extended,
@@ -65,14 +65,14 @@ class TaskRepo:
 
         return task
 
-    def add_subtask(self, parent: AnyTask, *, title: str) -> InlineTask:
+    def add_subtask(self, parent: Task, *, title: str) -> Task:
         title = title[:1].upper() + title[1:]
 
-        if isinstance(parent, InlineTask):
+        if parent.is_inline:
             raise NotImplementedError("Task upgrades are not supported yet")
 
         child_id = self._next_child_id(parent)
-        subtask = InlineTask(
+        subtask = Task(
             id=child_id,
             title=title,
             status=TaskStatus.PENDING,
@@ -83,29 +83,27 @@ class TaskRepo:
 
         return subtask
 
-    def _next_child_id(self, parent: FileTask | None) -> str:
+    def _next_child_id(self, parent: Task | None) -> str:
         if parent is None:
             return find_next_root_task_id(self.root)
 
         return get_next_subtask_id(parent)
 
-    def start_task(self, task: AnyTask) -> None:
+    def start_task(self, task: Task) -> None:
         if not _is_leaf_task(task):
             raise TaskHasSubtasksError(task)
 
         task.status = TaskStatus.IN_PROGRESS
         self._update_parents_status(task)
 
-    def reset_task(self, task: AnyTask) -> None:
+    def reset_task(self, task: Task) -> None:
         if not _is_leaf_task(task):
             raise TaskHasSubtasksError(task)
 
         task.status = TaskStatus.PENDING
         self._update_parents_status(task)
 
-    def cancel_task(
-        self, task: AnyTask, *, force: bool = False
-    ) -> list[AnyTask] | None:
+    def cancel_task(self, task: Task, *, force: bool = False) -> list[Task] | None:
         if _is_leaf_task(task):
             task.status = TaskStatus.CANCELLED
             self._update_parents_status(task)
@@ -114,14 +112,12 @@ class TaskRepo:
         if not force:
             raise TaskHasSubtasksError(task)
 
-        closed_tasks: list[AnyTask] = []
+        closed_tasks: list[Task] = []
         self._close_recursive(task, TaskStatus.CANCELLED, closed_tasks)
         self._update_parents_status(task)
         return closed_tasks[1:]  # don't include root task
 
-    def finish_task(
-        self, task: AnyTask, *, force: bool = False
-    ) -> list[AnyTask] | None:
+    def finish_task(self, task: Task, *, force: bool = False) -> list[Task] | None:
         if _is_leaf_task(task):
             task.status = TaskStatus.DONE
             self._update_parents_status(task)
@@ -130,16 +126,16 @@ class TaskRepo:
         if not force:
             raise TaskHasSubtasksError(task)
 
-        closed_tasks: list[AnyTask] = []
+        closed_tasks: list[Task] = []
         self._close_recursive(task, TaskStatus.DONE, closed_tasks)
         self._update_parents_status(task)
         return closed_tasks[1:]  # don't include root task
 
     def _close_recursive(
         self,
-        task: AnyTask,
+        task: Task,
         new_status: TaskStatus,
-        closed_tasks: list[AnyTask],
+        closed_tasks: list[Task],
     ) -> None:
         if task.is_closed:
             # already closed — don't override (e.g. don't cancel a done task)
@@ -148,19 +144,16 @@ class TaskRepo:
         closed_tasks.append(task)
         task.status = new_status
 
-        if isinstance(task, InlineTask):
-            return
-
         for subtask in task.subtasks:
             self._close_recursive(subtask, new_status, closed_tasks)
 
-    def _update_parents_status(self, task: AnyTask) -> None:
+    def _update_parents_status(self, task: Task) -> None:
         cur_id = task.id
         while not is_root_task_id(cur_id):
             ri = parse_task_ref(cur_id)
             parent = self.resolve_ref(ri.parent_id)
 
-            assert not isinstance(parent, InlineTask)
+            assert not parent.is_inline
             parent.status = _get_status_from_subtasks(parent)
             parent.extended = parent.extended or _has_file_subtasks(parent)
             cur_id = parent.id
@@ -218,11 +211,11 @@ class TaskRepo:
         self._register_tasks(task)
         _invalidate_task_flags(task)
 
-    def _register_tasks(self, task: FileTask) -> None:
+    def _register_tasks(self, task: Task) -> None:
         self._tasks[task.id] = task
         for subtask in task.subtasks:
             self._tasks[subtask.id] = subtask
-            if not isinstance(subtask, InlineTask):
+            if not subtask.is_inline:
                 self._register_tasks(subtask)
 
 
@@ -238,7 +231,7 @@ def find_next_root_task_id(root: Path) -> str:
     return f"s{max(existing, default=0) + 1:02d}"
 
 
-def get_next_subtask_id(parent: FileTask) -> str:
+def get_next_subtask_id(parent: Task) -> str:
     child_prefix = parent.id if "t" in parent.id else parent.id + "t"
     existing_nums = [
         int(t.id[len(child_prefix) :])
@@ -248,14 +241,11 @@ def get_next_subtask_id(parent: FileTask) -> str:
     return f"{child_prefix}{max(existing_nums, default=0) + 1:02d}"
 
 
-def _is_leaf_task(task: AnyTask) -> bool:
-    if isinstance(task, InlineTask):
-        return True
-
-    return not task.subtasks
+def _is_leaf_task(task: Task) -> bool:
+    return task.is_inline or not task.subtasks
 
 
-def _get_status_from_subtasks(task: FileTask) -> TaskStatus:
+def _get_status_from_subtasks(task: Task) -> TaskStatus:
     if not task.subtasks:
         # no subtasks -- kepp status same
         return task.status
@@ -269,12 +259,12 @@ def _get_status_from_subtasks(task: FileTask) -> TaskStatus:
     return TaskStatus.PENDING
 
 
-def _has_file_subtasks(task: FileTask) -> bool:
-    return any(not isinstance(s, InlineTask) for s in task.subtasks)
+def _has_file_subtasks(task: Task) -> bool:
+    return any(not s.is_inline for s in task.subtasks)
 
 
-def _invalidate_task_flags(root: AnyTask) -> None:
-    if isinstance(root, InlineTask):
+def _invalidate_task_flags(root: Task) -> None:
+    if root.is_inline:
         return
 
     for child in root.subtasks:
