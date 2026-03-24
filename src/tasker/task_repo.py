@@ -230,6 +230,8 @@ def _is_leaf_task(task: AnyTask) -> bool:
 
 def _get_status_from_subtasks(task: BasicTask | ExtendedTask) -> TaskStatus:
     if all(t.is_closed for t in task.subtasks):
+        if all(t.status == TaskStatus.CANCELLED for t in task.subtasks):
+            return TaskStatus.CANCELLED
         return TaskStatus.DONE
     if any(t.status == TaskStatus.IN_PROGRESS for t in task.subtasks):
         return TaskStatus.IN_PROGRESS

@@ -78,12 +78,32 @@ def test_cancel_done_task(story_id: str) -> None:
     assert task.subtasks[0].status == TaskStatus.CANCELLED
 
 
-def test_cancel_subtask_sets_parent_done_when_only_subtask(
+def test_cancel_subtask_sets_parent_cancelled_when_only_subtask(
     story_id: str,
 ) -> None:
     assert_invoke(app, ["add", story_id, "Leaf task"])
     task_id = f"{story_id}t01"
     assert_invoke(app, ["cancel", task_id])
+    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task = parse_task_file(task_file)
+    assert task.status == TaskStatus.CANCELLED
+
+
+def test_cancel_all_subtasks_sets_parent_cancelled(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    assert_invoke(app, ["cancel", f"{story_id}t01"])
+    assert_invoke(app, ["cancel", f"{story_id}t02"])
+    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task = parse_task_file(task_file)
+    assert task.status == TaskStatus.CANCELLED
+
+
+def test_mixed_done_and_cancelled_sets_parent_done(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Task one"])
+    assert_invoke(app, ["add", story_id, "Task two"])
+    assert_invoke(app, ["done", f"{story_id}t01"])
+    assert_invoke(app, ["cancel", f"{story_id}t02"])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
     task = parse_task_file(task_file)
     assert task.status == TaskStatus.DONE

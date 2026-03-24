@@ -5,12 +5,7 @@ from typing import Annotated, Optional
 import typer
 from typer_di import Depends, TyperDI
 
-from tasker.base_types import (
-    BasicTask,
-    ExtendedTask,
-    TaskStatus,
-    is_nonleaf_task,
-)
+from tasker.base_types import BasicTask, ExtendedTask, TaskStatus, is_nonleaf_task
 from tasker.task_repo import TaskRepo
 from tasker.utils import console
 
@@ -138,7 +133,7 @@ def cmd_start_task(
 
         if task.status == TaskStatus.IN_PROGRESS:
             console.print(
-                f"[green]Task [blue]{task.ref}[/blue]" " was already started[/green]",
+                f"[green]Task [blue]{task.ref}[/blue] was already started[/green]",
                 json_output={"task_ref": task.ref},
             )
             return
@@ -201,7 +196,7 @@ def cmd_cancel_task(
 
         if task.status == TaskStatus.CANCELLED:
             console.print(
-                f"[green]Task [blue]{task.ref}[/blue]" " was already cancelled[/green]",
+                f"[green]Task [blue]{task.ref}[/blue] was already cancelled[/green]",
                 json_output={"task_ref": task.ref},
             )
             return
@@ -264,7 +259,7 @@ def cmd_done_task(
 
         if task.status == TaskStatus.DONE:
             console.print(
-                f"[green]Task [blue]{task.ref}[/blue]" " was already finished[/green]",
+                f"[green]Task [blue]{task.ref}[/blue] was already finished[/green]",
                 json_output={"task_ref": task.ref},
             )
             return
@@ -294,12 +289,16 @@ def cmd_done_task(
 
 def _report_finishing_nonleaf_task(task: BasicTask | ExtendedTask) -> None:
     open_tasks = [t for t in task.subtasks if not t.is_closed]
-    assert len(open_tasks) > 0
 
     console.print(
         f"[yellow]Task [blue]{task.ref}[/blue] has subtasks"
         " — its status is managed automatically.[/yellow]"
     )
+
+    if not open_tasks:
+        console.print("All subtasks are already closed.")
+        return
+
     console.print("Finish its open subtasks first, or use [bold]--force[/bold].")
 
     console.print("\nOpen subtasks:")
