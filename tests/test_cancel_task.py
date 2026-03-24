@@ -28,7 +28,7 @@ def test_cancel_leaf_task_updates_status_on_disk(story_id: str) -> None:
     assert_invoke(app, ["cancel", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
     content = task_file.read_text()
-    assert f"- [x] {task_id}: ~~Leaf task~~" in content
+    assert f"- [x] ~~{task_id}: Leaf task~~" in content
 
 
 def test_cancel_leaf_task_parses_as_cancelled(story_id: str) -> None:
@@ -273,7 +273,7 @@ def test_cancel_idempotent_flushes_corrected_statuses(story_id: str) -> None:
     content = task_file.read_text()
     patched = content.replace(
         "- [ ] " + f"{story_id}t01: Task one",
-        "- [x] " + f"{story_id}t01: ~~Task one~~",
+        "- [x] ~~" + f"{story_id}t01: Task one~~",
     )
     assert "status: pending" in patched
     task_file.write_text(patched)

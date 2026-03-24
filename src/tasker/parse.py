@@ -14,7 +14,8 @@ from .base_types import (
 from .exceptions import TaskValidateError
 
 # ID: s<digits> or s<digits>t<digits> (t appears once; each level adds two digits)
-_SUBTASK_RE = re.compile(r"^- \[(.)\] (s\d+t(?:\d{2})+): (.+)$")
+# Cancelled tasks: ~~s01t01: Title~~ (new) or s01t01: ~~Title~~ (legacy)
+_SUBTASK_RE = re.compile(r"^- \[(.)\] (?:~~)?(s\d+t(?:\d{2})+): (.+?)(?:~~)?$")
 _CHECKBOX_STATUS = {
     " ": TaskStatus.PENDING,
     "~": TaskStatus.IN_PROGRESS,
@@ -178,10 +179,14 @@ def _parse_content(content: str, *, task_ref: str) -> _ParsedContent:
             if m:
                 checkbox, task_id, task_title = m.group(1), m.group(2), m.group(3)
                 sub_status = _CHECKBOX_STATUS.get(checkbox, TaskStatus.PENDING)
-                # Strikethrough title with [x] checkbox means cancelled
-                if task_title.startswith("~~") and task_title.endswith("~~"):
-                    task_title = task_title[2:-2]
+                # Strikethrough around id+title (or legacy: title only)
+                if "~~" in line:
                     sub_status = TaskStatus.CANCELLED
+                    # Strip legacy title-only strikethrough markers
+                    if task_title.startswith("~~") and task_title.endswith("~~"):
+                        task_title = task_title[2:-2]
+                    elif task_title.startswith("~~"):
+                        task_title = task_title[2:]
                 subtasks.append(
                     InlineTask(
                         id=task_id,

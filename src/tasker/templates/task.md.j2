@@ -14,7 +14,7 @@ status: {{ status }}
 
 {% for subtask in subtasks %}
 {% if subtask.status.value == "cancelled" %}
-- [{{ subtask.status | checkbox }}] {{ subtask.id }}: ~~{{ subtask.title }}~~
+- [{{ subtask.status | checkbox }}] ~~{{ subtask.id }}: {{ subtask.title }}~~
 {% else %}
 - [{{ subtask.status | checkbox }}] {{ subtask.id }}: {{ subtask.title }}
 {% endif %}
