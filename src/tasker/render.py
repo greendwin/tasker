@@ -53,5 +53,5 @@ def build_task_file_path(root: Path, task: FileTask) -> Path:
 
 def write_task_file(root: Path, task: FileTask, *, content: str) -> None:
     path = build_task_file_path(root, task)
-    path.parent.mkdir(exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)

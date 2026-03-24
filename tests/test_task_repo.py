@@ -260,6 +260,47 @@ def test_flush_twice_does_not_rewrite_unchanged() -> None:
 # --- task statuses ---
 
 
+def test_flush_upgrades_basic_to_extended() -> None:
+    """When extended flag changes, flush removes old .md and creates dir/README.md."""
+    repo = make_repo()
+    task = repo.create_root_task(
+        title="My story", description=None, slug=None, extended=False
+    )
+    repo.flush_to_disk()
+
+    old_path = Path("planning") / f"{task.ref}.md"
+    assert old_path.exists()
+
+    # Simulate upgrade: set extended flag
+    task.extended = True
+    repo.flush_to_disk()
+
+    # Old .md file should be removed
+    assert not old_path.exists()
+    # New directory structure should exist
+    new_path = Path("planning") / task.ref / "README.md"
+    assert new_path.exists()
+
+
+def test_flush_upgrade_preserves_content() -> None:
+    """Content is preserved when upgrading from basic to extended."""
+    repo = make_repo()
+    task = repo.create_root_task(
+        title="My story", description="Some details", slug=None, extended=False
+    )
+    repo.flush_to_disk()
+
+    old_path = Path("planning") / f"{task.ref}.md"
+    old_content = old_path.read_text()
+
+    task.extended = True
+    repo.flush_to_disk()
+
+    new_path = Path("planning") / task.ref / "README.md"
+    new_content = new_path.read_text()
+    assert new_content == old_content
+
+
 def test_update_statuses_on_load() -> None:
     repo = make_repo()
     task = repo.create_root_task(

@@ -1,3 +1,4 @@
+import dataclasses
 import re
 from pathlib import Path
 
@@ -7,9 +8,10 @@ from tasker.parse import detect_task_type, parse_task, parse_task_ref
 from tasker.render import render_task, write_task_file
 
 
-def generate_slug(title: str) -> str:
-    words = re.sub(r"[^a-z0-9\s]", "", title.lower()).split()[:5]
-    return "-".join(words)
+@dataclasses.dataclass
+class _DiskState:
+    content: str
+    extended: bool
 
 
 class TaskRepo:
@@ -17,7 +19,7 @@ class TaskRepo:
         self.root = root
         self._root_tasks: dict[str, FileTask] = {}
         self._tasks: dict[str, AnyTask] = {}
-        self._disk_content: dict[str, str] = {}
+        self._disk_state: dict[str, _DiskState] = {}
 
     def resolve_ref(self, task_ref: str) -> AnyTask:
         ti = parse_task_ref(task_ref)
@@ -59,7 +61,7 @@ class TaskRepo:
 
         self._root_tasks[root_id] = task
         self._tasks[root_id] = task
-        self._disk_content[root_id] = ""  # new — not yet on disk
+        self._disk_state[root_id] = _DiskState(content="", extended=extended)
 
         return task
 
@@ -166,9 +168,23 @@ class TaskRepo:
     def flush_to_disk(self) -> None:
         for task in self._root_tasks.values():
             rendered = render_task(task)
-            if rendered != self._disk_content.get(task.id, ""):
+            prev = self._disk_state.get(task.id)
+            was_extended = prev.extended if prev else task.extended
+            prev_content = prev.content if prev else ""
+            upgraded = not was_extended and task.extended
+            content_changed = rendered != prev_content
+
+            if upgraded:
+                # upgraded from basic to extended — remove old .md file
+                old_path = self.root / f"{task.ref}.md"
+                if old_path.exists():
+                    old_path.unlink()
+
+            if content_changed or upgraded:
                 write_task_file(self.root, task, content=rendered)
-                self._disk_content[task.id] = rendered
+                self._disk_state[task.id] = _DiskState(
+                    content=rendered, extended=task.extended
+                )
 
     def _load_root_task(self, root_id: str) -> None:
         assert root_id not in self._root_tasks
@@ -196,7 +212,7 @@ class TaskRepo:
             extended=tt.extended,
         )
 
-        self._disk_content[root_id] = content
+        self._disk_state[root_id] = _DiskState(content=content, extended=tt.extended)
 
         self._root_tasks[root_id] = task
         self._register_tasks(task)
@@ -208,6 +224,11 @@ class TaskRepo:
             self._tasks[subtask.id] = subtask
             if not isinstance(subtask, InlineTask):
                 self._register_tasks(subtask)
+
+
+def generate_slug(title: str) -> str:
+    words = re.sub(r"[^a-z0-9\s]", "", title.lower()).split()[:5]
+    return "-".join(words)
 
 
 def find_next_root_task_id(root: Path) -> str:
