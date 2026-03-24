@@ -139,8 +139,11 @@ class TaskRepo:
         new_status: TaskStatus,
         closed_tasks: list[AnyTask],
     ) -> None:
-        if not task.is_closed:
-            closed_tasks.append(task)
+        if task.is_closed:
+            # already closed — don't override (e.g. don't cancel a done task)
+            return
+
+        closed_tasks.append(task)
         task.status = new_status
 
         if isinstance(task, InlineTask):

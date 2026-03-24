@@ -180,6 +180,17 @@ def test_cancel_force_does_not_list_already_cancelled_subtasks(
     assert f"{story_id}t02" in result.output
 
 
+def test_cancel_force_preserves_done_subtasks(story_id: str) -> None:
+    assert_invoke(app, ["add", story_id, "Subtask one"])
+    assert_invoke(app, ["add", story_id, "Subtask two"])
+    assert_invoke(app, ["done", f"{story_id}t01"])
+    assert_invoke(app, ["cancel", "--force", story_id])
+    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task = parse_task_file(task_file)
+    assert task.subtasks[0].status == TaskStatus.DONE
+    assert task.subtasks[1].status == TaskStatus.CANCELLED
+
+
 def test_cancel_nonexistent_task_fails() -> None:
     assert_invoke(app, ["cancel", "s99t01"], expect_error=True)
 
