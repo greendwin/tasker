@@ -7,24 +7,22 @@ from tasker.base_types import TaskStatus
 from tasker.cli import app
 from tasker.parse import parse_task_file
 
-from .helpers import assert_invoke, create_task
+from .helpers import add_subtask, assert_invoke, create_task
 
 
 @pytest.fixture()
 def story_id() -> str:
-    return create_task("My story")
+    return create_task("My story").task_id
 
 
 def test_start_pending_leaf_task_succeeds(story_id: str) -> None:
-    assert_invoke(app, ["add", story_id, "Leaf task"])
-    task_id = f"{story_id}t01"
+    task_id = add_subtask(story_id, "Leaf task").task_id
     result = assert_invoke(app, ["start", task_id])
     assert task_id in result.output
 
 
 def test_start_leaf_task_updates_status_on_disk(story_id: str) -> None:
-    assert_invoke(app, ["add", story_id, "Leaf task"])
-    task_id = f"{story_id}t01"
+    task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["start", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
     content = task_file.read_text()
@@ -32,8 +30,7 @@ def test_start_leaf_task_updates_status_on_disk(story_id: str) -> None:
 
 
 def test_start_leaf_task_parses_as_in_progress(story_id: str) -> None:
-    assert_invoke(app, ["add", story_id, "Leaf task"])
-    task_id = f"{story_id}t01"
+    task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["start", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
     task = parse_task_file(task_file)
@@ -41,16 +38,14 @@ def test_start_leaf_task_parses_as_in_progress(story_id: str) -> None:
 
 
 def test_start_already_in_progress_succeeds(story_id: str) -> None:
-    assert_invoke(app, ["add", story_id, "Leaf task"])
-    task_id = f"{story_id}t01"
+    task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["start", task_id])
     assert_invoke(app, ["start", task_id])  # idempotent, no error
 
 
 def test_start_already_in_progress_is_idempotent(story_id: str) -> None:
-    assert_invoke(app, ["add", story_id, "Task one"])
-    assert_invoke(app, ["add", story_id, "Task two"])
-    task_id = f"{story_id}t01"
+    task_id = add_subtask(story_id, "Task one").task_id
+    add_subtask(story_id, "Task two")
     assert_invoke(app, ["start", task_id])
     # second start should succeed without error
     result = assert_invoke(app, ["start", task_id])
@@ -60,8 +55,7 @@ def test_start_already_in_progress_is_idempotent(story_id: str) -> None:
 def test_restart_done_task(story_id: str) -> None:
     # Manually create a task file with done status by reading and checking
     # We simulate by calling start twice and checking the error
-    assert_invoke(app, ["add", story_id, "Leaf task"])
-    task_id = f"{story_id}t01"
+    task_id = add_subtask(story_id, "Leaf task").task_id
     # Mark in-progress first, then set done manually via file content
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
     content = task_file.read_text()
@@ -74,24 +68,23 @@ def test_restart_done_task(story_id: str) -> None:
 
 
 def test_start_task_with_subtasks_fails(story_id: str) -> None:
-    assert_invoke(app, ["add", story_id, "Subtask one"])
-    assert_invoke(app, ["add", story_id, "Subtask two"])
+    add_subtask(story_id, "Subtask one")
+    add_subtask(story_id, "Subtask two")
     result = assert_invoke(app, ["start", story_id], expect_error=True)
     assert "has subtasks" in result.output
     assert "managed automatically" in result.output
 
 
 def test_start_task_with_subtasks_lists_pending(story_id: str) -> None:
-    assert_invoke(app, ["add", story_id, "Subtask one"])
-    assert_invoke(app, ["add", story_id, "Subtask two"])
+    t01 = add_subtask(story_id, "Subtask one").task_id
+    t02 = add_subtask(story_id, "Subtask two").task_id
     result = assert_invoke(app, ["start", story_id], expect_error=True)
-    assert f"{story_id}t01" in result.output
-    assert f"{story_id}t02" in result.output
+    assert t01 in result.output
+    assert t02 in result.output
 
 
 def test_start_task_with_subtasks_no_pending_shows_message(story_id: str) -> None:
-    assert_invoke(app, ["add", story_id, "Subtask one"])
-    task_id = f"{story_id}t01"
+    task_id = add_subtask(story_id, "Subtask one").task_id
     # Mark the only subtask as done via file
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
     content = task_file.read_text()
@@ -102,8 +95,7 @@ def test_start_task_with_subtasks_no_pending_shows_message(story_id: str) -> Non
 
 
 def test_start_task_by_slug_ref(story_id: str) -> None:
-    assert_invoke(app, ["add", story_id, "Leaf task"])
-    task_id = f"{story_id}t01"
+    task_id = add_subtask(story_id, "Leaf task").task_id
     result = assert_invoke(app, ["start", task_id])
     assert task_id in result.output
 
@@ -113,8 +105,7 @@ def test_start_nonexistent_task_fails() -> None:
 
 
 def test_start_subtask_sets_parent_in_progress(story_id: str) -> None:
-    assert_invoke(app, ["add", story_id, "Leaf task"])
-    task_id = f"{story_id}t01"
+    task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["start", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
     task = parse_task_file(task_file)
@@ -125,32 +116,32 @@ def test_start_subtask_parent_stays_pending_when_others_all_pending(
     story_id: str,
 ) -> None:
     # Two subtasks; start none → parent stays pending
-    assert_invoke(app, ["add", story_id, "Task one"])
-    assert_invoke(app, ["add", story_id, "Task two"])
+    add_subtask(story_id, "Task one")
+    add_subtask(story_id, "Task two")
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
     task = parse_task_file(task_file)
     assert task.status == TaskStatus.PENDING
 
 
 def test_start_in_progress_parent_succeeds(story_id: str) -> None:
-    assert_invoke(app, ["add", story_id, "Task one"])
-    assert_invoke(app, ["add", story_id, "Task two"])
-    assert_invoke(app, ["start", f"{story_id}t01"])
+    t01 = add_subtask(story_id, "Task one").task_id
+    add_subtask(story_id, "Task two")
+    assert_invoke(app, ["start", t01])
     # parent is now in-progress; starting it again should not fail
     assert_invoke(app, ["start", story_id])
 
 
 def test_start_in_progress_parent_shows_already_started(story_id: str) -> None:
-    assert_invoke(app, ["add", story_id, "Task one"])
-    assert_invoke(app, ["add", story_id, "Task two"])
-    assert_invoke(app, ["start", f"{story_id}t01"])
+    t01 = add_subtask(story_id, "Task one").task_id
+    add_subtask(story_id, "Task two")
+    assert_invoke(app, ["start", t01])
     result = assert_invoke(app, ["start", story_id])
     assert "already started" in result.output
 
 
 def test_start_in_progress_parent_json_succeeds(story_id: str) -> None:
-    assert_invoke(app, ["add", story_id, "Task one"])
-    assert_invoke(app, ["start", f"{story_id}t01"])
+    task_id = add_subtask(story_id, "Task one").task_id
+    assert_invoke(app, ["start", task_id])
     result = assert_invoke(app, ["--json-output", "start", story_id])
     data = json.loads(result.output)
     assert data["task_refs"] == [f"{story_id}-my-story"]
@@ -165,7 +156,7 @@ def test_start_idempotent_flushes_corrected_statuses(story_id: str) -> None:
     Running `start` on the subtask is idempotent (already in-progress), but
     the corrected parent status must still be flushed to disk.
     """
-    assert_invoke(app, ["add", story_id, "Task one"])
+    task_id = add_subtask(story_id, "Task one").task_id
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
 
     # simulate manual edit: mark subtask in-progress but leave parent pending
@@ -175,7 +166,7 @@ def test_start_idempotent_flushes_corrected_statuses(story_id: str) -> None:
     task_file.write_text(patched)
 
     # idempotent start on already-in-progress subtask
-    result = assert_invoke(app, ["start", f"{story_id}t01"])
+    result = assert_invoke(app, ["start", task_id])
     assert "already started" in result.output
 
     # parent status must now be corrected on disk

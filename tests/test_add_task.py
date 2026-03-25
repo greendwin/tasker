@@ -6,12 +6,12 @@ from tasker.base_types import TaskStatus
 from tasker.cli import app
 from tasker.parse import parse_task_file
 
-from .helpers import assert_invoke, create_task
+from .helpers import add_subtask, assert_invoke, create_task
 
 
 @pytest.fixture()
 def parent_id() -> str:
-    return create_task("My story")
+    return create_task("My story").task_id
 
 
 def test_add_inline_subtask_output(parent_id: str) -> None:
@@ -71,8 +71,8 @@ def test_add_subtask_parse_roundtrip(parent_id: str) -> None:
 
 
 def test_add_subtask_to_done_parent_reopens_it(parent_id: str) -> None:
-    assert_invoke(app, ["add", parent_id, "First subtask"])
-    assert_invoke(app, ["done", f"{parent_id}t01"])
+    t01 = add_subtask(parent_id, "First subtask").task_id
+    assert_invoke(app, ["done", t01])
     # parent is now done; adding a new subtask should reopen it
     assert_invoke(app, ["add", parent_id, "Second subtask"])
     task_file = next(Path("planning").glob(f"{parent_id}-*.md"))
@@ -81,8 +81,8 @@ def test_add_subtask_to_done_parent_reopens_it(parent_id: str) -> None:
 
 
 def test_add_subtask_to_cancelled_parent_reopens_it(parent_id: str) -> None:
-    assert_invoke(app, ["add", parent_id, "First subtask"])
-    assert_invoke(app, ["cancel", f"{parent_id}t01"])
+    t01 = add_subtask(parent_id, "First subtask").task_id
+    assert_invoke(app, ["cancel", t01])
     # parent is now cancelled; adding a new subtask should reopen it
     assert_invoke(app, ["add", parent_id, "Second subtask"])
     task_file = next(Path("planning").glob(f"{parent_id}-*.md"))
@@ -91,8 +91,8 @@ def test_add_subtask_to_cancelled_parent_reopens_it(parent_id: str) -> None:
 
 
 def test_add_subtask_to_in_progress_parent_keeps_status(parent_id: str) -> None:
-    assert_invoke(app, ["add", parent_id, "First subtask"])
-    assert_invoke(app, ["start", f"{parent_id}t01"])
+    t01 = add_subtask(parent_id, "First subtask").task_id
+    assert_invoke(app, ["start", t01])
     # parent is in-progress; adding another subtask keeps it in-progress
     assert_invoke(app, ["add", parent_id, "Second subtask"])
     task_file = next(Path("planning").glob(f"{parent_id}-*.md"))

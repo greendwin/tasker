@@ -7,12 +7,12 @@ from tasker.base_types import TaskStatus
 from tasker.cli import app
 from tasker.parse import parse_task_file
 
-from .helpers import assert_invoke, create_task
+from .helpers import add_subtask, assert_invoke, create_task
 
 
 @pytest.fixture()
 def parent_id() -> str:
-    return create_task("Batch story")
+    return create_task("Batch story").task_id
 
 
 def _task_file(parent_id: str) -> Path:
@@ -121,8 +121,8 @@ def test_batch_json_empty_input_returns_empty_list(parent_id: str) -> None:
 
 
 def test_batch_add_to_done_parent_reopens_it(parent_id: str) -> None:
-    assert_invoke(app, ["add", parent_id, "First subtask"])
-    assert_invoke(app, ["done", f"{parent_id}t01"])
+    t01 = add_subtask(parent_id, "First subtask").task_id
+    assert_invoke(app, ["done", t01])
     # parent is now done; batch-adding should reopen it
     assert_invoke(app, ["add-many", parent_id], input="New task\n\n")
     task = parse_task_file(_task_file(parent_id))

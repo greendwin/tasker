@@ -6,7 +6,7 @@ from typer import Typer
 from typer.testing import CliRunner
 
 from tasker.cli import app
-from tasker.parse import parse_task_ref
+from tasker.parse import ParsedRef, parse_task_ref
 
 _runner = CliRunner()
 
@@ -31,7 +31,17 @@ def assert_invoke(
     return result
 
 
-def create_task(title: str) -> str:
+def create_task(title: str) -> ParsedRef:
     result = assert_invoke(app, ["--json-output", "new", title])
-    task_ref: str = json.loads(result.output.strip())["task_ref"]
-    return parse_task_ref(task_ref).task_id
+    task_ref = json.loads(result.output.strip())["task_ref"]
+    return parse_task_ref(task_ref)
+
+
+def add_subtask(parent_ref: str, title: str, details: str | None = None) -> ParsedRef:
+    args = ["--json-output", "add", parent_ref, title]
+    if details is not None:
+        args.extend(["--details", details])
+
+    result = assert_invoke(app, args)
+    task_ref = json.loads(result.output.strip())["task_ref"]
+    return parse_task_ref(task_ref)

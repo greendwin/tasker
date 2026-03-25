@@ -2,18 +2,26 @@ from pathlib import Path
 
 import pytest
 
-from tasker.cli import app
 from tasker.exceptions import TaskerError
 from tasker.render import build_task_file_path
 from tasker.task_repo import TaskRepo, generate_slug
 
-from .helpers import assert_invoke, create_task
+from .helpers import add_subtask, create_task
+
+
+def _tasker_root() -> Path:
+    planning = Path("planning")
+    planning.mkdir(exist_ok=True)
+    return planning
+
+
+@pytest.fixture
+def tasker_root() -> Path:
+    return _tasker_root()
 
 
 def make_repo() -> TaskRepo:
-    planning = Path("planning")
-    planning.mkdir(exist_ok=True)
-    return TaskRepo(planning)
+    return TaskRepo(_tasker_root())
 
 
 # --- next_child_id(None) → next story ID ---
@@ -35,7 +43,7 @@ def test_next_child_id_none_with_existing_stories() -> None:
 
 
 def test_next_child_id_story_no_subtasks() -> None:
-    story_id = create_task("My story")
+    story_id = create_task("My story").task_id
     repo = make_repo()
     task = repo.resolve_ref(story_id)
     assert not task.is_inline
@@ -43,9 +51,9 @@ def test_next_child_id_story_no_subtasks() -> None:
 
 
 def test_next_child_id_story_with_subtasks() -> None:
-    story_id = create_task("My story")
-    assert_invoke(app, ["add", story_id, "First subtask"])
-    assert_invoke(app, ["add", story_id, "Second subtask"])
+    story_id = create_task("My story").task_id
+    add_subtask(story_id, "First subtask")
+    add_subtask(story_id, "Second subtask")
     repo = make_repo()
     task = repo.resolve_ref(story_id)
     assert not task.is_inline
@@ -53,7 +61,7 @@ def test_next_child_id_story_with_subtasks() -> None:
 
 
 def test_next_child_id_accepts_slug_ref() -> None:
-    story_id = create_task("My story")
+    story_id = create_task("My story").task_id
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
     slug_ref = task_file.stem  # e.g. "s01-my-story"
     repo = make_repo()
@@ -63,11 +71,10 @@ def test_next_child_id_accepts_slug_ref() -> None:
 
 
 def test_next_child_id_inline_task_raises() -> None:
-    story_id = create_task("My story")
-    assert_invoke(app, ["add", story_id, "Inline subtask"])
-    inline_ref = f"{story_id}t01"
+    story_id = create_task("My story").task_id
+    inline_id = add_subtask(story_id, "Inline subtask").task_id
     repo = make_repo()
-    parent = repo.resolve_ref(inline_ref)
+    parent = repo.resolve_ref(inline_id)
     with pytest.raises(NotImplementedError):
         repo.add_subtask(parent, title="Nested subtask")
 
@@ -82,7 +89,7 @@ def test_next_child_id_unknown_ref_raises() -> None:
 
 
 def test_load_story_raises_on_duplicate_id() -> None:
-    story_id = create_task("My story")
+    story_id = create_task("My story").task_id
     # create a second file with the same story ID but a different slug
     original = next(Path("planning").glob(f"{story_id}-*.md"))
     duplicate = original.parent / f"{story_id}-other-slug.md"
@@ -185,7 +192,7 @@ def test_create_story_increments_id_for_second_story() -> None:
 
 
 def test_repo_add_subtask() -> None:
-    story_id = create_task("My story")
+    story_id = create_task("My story").task_id
     repo = make_repo()
     parent = repo.resolve_ref(story_id)
     child = repo.add_subtask(parent, title="Subtask one")
@@ -194,7 +201,7 @@ def test_repo_add_subtask() -> None:
 
 
 def test_repo_add_subtask_no_disk_write_before_flush() -> None:
-    story_id = create_task("My story")
+    story_id = create_task("My story").task_id
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
     content_before = task_file.read_text()
     repo = make_repo()
@@ -204,7 +211,7 @@ def test_repo_add_subtask_no_disk_write_before_flush() -> None:
 
 
 def test_repo_add_subtask_writes_after_flush() -> None:
-    story_id = create_task("My story")
+    story_id = create_task("My story").task_id
     repo = make_repo()
     parent = repo.resolve_ref(story_id)
     child = repo.add_subtask(parent, title="New subtask")
@@ -214,10 +221,10 @@ def test_repo_add_subtask_writes_after_flush() -> None:
 
 
 def test_repo_add_subtask_inline_parent_raises() -> None:
-    story_id = create_task("My story")
-    assert_invoke(app, ["add", story_id, "First subtask"])
+    story_id = create_task("My story").task_id
+    t01 = add_subtask(story_id, "First subtask").task_id
     repo = make_repo()
-    parent = repo.resolve_ref(f"{story_id}t01")
+    parent = repo.resolve_ref(t01)
     with pytest.raises(NotImplementedError):
         repo.add_subtask(parent, title="Nested subtask")
 
@@ -226,7 +233,7 @@ def test_repo_add_subtask_inline_parent_raises() -> None:
 
 
 def test_flush_does_not_rewrite_unmodified_story() -> None:
-    story_id = create_task("My story")
+    story_id = create_task("My story").task_id
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
     mtime_before = task_file.stat().st_mtime_ns
     repo = make_repo()
@@ -236,7 +243,7 @@ def test_flush_does_not_rewrite_unmodified_story() -> None:
 
 
 def test_flush_rewrites_modified_story() -> None:
-    story_id = create_task("My story")
+    story_id = create_task("My story").task_id
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
     mtime_before = task_file.stat().st_mtime_ns
     repo = make_repo()
