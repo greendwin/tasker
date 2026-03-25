@@ -4,8 +4,13 @@ from pathlib import Path
 
 from tasker.base_types import Task, TaskStatus, is_root_task_id
 from tasker.exceptions import TaskHasSubtasksError, TaskValidateError
-from tasker.parse import detect_task_type, parse_task, parse_task_ref
-from tasker.render import render_task, write_task_file
+from tasker.parse import (
+    ParsedSubtask,
+    detect_task_type,
+    parse_task,
+    parse_task_ref,
+)
+from tasker.render import build_task_file_path, render_task, write_task_file
 
 
 @dataclasses.dataclass
@@ -55,8 +60,6 @@ class TaskRepo:
             extended=extended,
             title=title,
             description=description,
-            status=TaskStatus.PENDING,
-            subtasks=[],
         )
 
         self._root_tasks[root_id] = task
@@ -89,7 +92,6 @@ class TaskRepo:
             slug=slug,
             title=title,
             description=description,
-            status=TaskStatus.PENDING,
         )
 
         parent.subtasks.append(subtask)
@@ -223,25 +225,66 @@ class TaskRepo:
 
         content = tt.content_path.read_text(encoding="utf-8")
 
-        task = parse_task(
+        root, subtasks = parse_task(
             content,
             task_id=tt.task_id,
             slug=tt.slug,
             extended=tt.extended,
         )
 
+        assert root_id == root.id
+        self._root_tasks[root_id] = root
+        self._tasks[root_id] = root
         self._disk_state[root_id] = _DiskState(content=content, extended=tt.extended)
 
-        self._root_tasks[root_id] = task
-        self._register_tasks(task)
-        _invalidate_task_flags(task)
+        for child_info in subtasks:
+            child = self._load_subtask(
+                self.root / root.ref,
+                child_info,
+            )
+            root.subtasks.append(child)
 
-    def _register_tasks(self, task: Task) -> None:
+        _invalidate_task_flags(root)
+
+    def _load_subtask(self, root: Path, task_info: ParsedSubtask) -> Task:
+        if task_info.slug is None:
+            # inline task cannot be extended
+            assert not task_info.extended
+            task = Task(
+                id=task_info.id,
+                title=task_info.title,
+                status=task_info.status,
+                slug=task_info.slug,
+                extended=task_info.extended,
+            )
+
+            # register task
+            self._tasks[task.id] = task
+
+            assert task.is_inline
+            return task
+
+        content = build_task_file_path(
+            root, task_info.ref, task_info.extended
+        ).read_text("utf-8")
+
+        task, subtasks = parse_task(
+            content,
+            task_id=task_info.id,
+            slug=task_info.slug,
+            extended=task_info.extended,
+        )
+
         self._tasks[task.id] = task
-        for subtask in task.subtasks:
-            self._tasks[subtask.id] = subtask
-            if not subtask.is_inline:
-                self._register_tasks(subtask)
+        self._disk_state[task.id] = _DiskState(
+            content=content, extended=task_info.extended
+        )
+
+        for child_info in subtasks:
+            child = self._load_subtask(root / task.ref, child_info)
+            task.subtasks.append(child)
+
+        return task
 
 
 def generate_slug(title: str) -> str:

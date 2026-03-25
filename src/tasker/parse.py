@@ -1,4 +1,5 @@
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple
 
@@ -20,8 +21,9 @@ _CHECKBOX_STATUS = {
 }
 
 
-class ParsedRef(NamedTuple):
-    value: str  # original value "id-slug or id"
+@dataclass
+class ParsedRef:
+    task_ref: str  # original value "id-slug or id"
     task_id: str
     slug: str | None
     parent_id: str
@@ -47,7 +49,7 @@ def parse_task_ref(task_ref: str) -> ParsedRef:
         parent_id = task_id[:t_pos] if len(digits_after_t) == 2 else task_id[:-2]
 
     return ParsedRef(
-        value=task_ref,
+        task_ref=task_ref,
         task_id=task_id,
         slug=slug,
         parent_id=parent_id,
@@ -55,7 +57,8 @@ def parse_task_ref(task_ref: str) -> ParsedRef:
     )
 
 
-class TaskDetectResult(NamedTuple):
+@dataclass
+class TaskDetectResult:
     task_ref: str
     task_id: str
     slug: str
@@ -80,7 +83,7 @@ def detect_task_type(task_path: Path) -> TaskDetectResult:
         )
 
     return TaskDetectResult(
-        task_ref=ref.value,
+        task_ref=ref.task_ref,
         task_id=ref.task_id,
         slug=ref.slug,
         extended=extended,
@@ -88,35 +91,55 @@ def detect_task_type(task_path: Path) -> TaskDetectResult:
     )
 
 
-def parse_task(content: str, *, task_id: str, slug: str, extended: bool) -> Task:
+@dataclass
+class ParsedSubtask:
+    id: str
+    slug: str | None
+    ref: str
+    title: str
+    status: TaskStatus
+    extended: bool
+
+
+@dataclass
+class _ParsedContent:
+    id: str
+    title: str
+    description: str | None
+    status: TaskStatus
+    subtasks: list[ParsedSubtask]
+
+
+class ParseTaskResult(NamedTuple):
+    task: Task
+    subtasks: list[ParsedSubtask]
+
+
+def parse_task(
+    content: str, *, task_id: str, slug: str, extended: bool
+) -> ParseTaskResult:
     parsed = _parse_content(content, task_ref=build_task_ref(task_id, slug))
 
-    return Task(
-        id=parsed.id,
-        slug=slug,
-        extended=extended,
-        title=parsed.title,
-        description=parsed.description,
-        status=parsed.status,
-        subtasks=parsed.subtasks,
+    return ParseTaskResult(
+        Task(
+            id=parsed.id,
+            slug=slug,
+            extended=extended,
+            title=parsed.title,
+            description=parsed.description,
+            status=parsed.status,
+        ),
+        parsed.subtasks,
     )
 
 
-def parse_task_file(path: Path) -> Task:
+def parse_task_file(path: Path) -> ParseTaskResult:
     tt = detect_task_type(path)
     content = tt.content_path.read_text(encoding="utf-8")
     return parse_task(content, task_id=tt.task_id, slug=tt.slug, extended=tt.extended)
 
 
-class _ParsedContent(NamedTuple):
-    id: str
-    title: str
-    description: str | None
-    status: TaskStatus
-    subtasks: list[Task]
-
-
-def _parse_subtask_line(line: str) -> Task | None:
+def _parse_subtask_line(line: str) -> ParsedSubtask | None:
     # Try link-style first: - [ ] [s01t01](s01t01-slug.md): Title
     ml = _LINK_SUBTASK_RE.match(line)
     if ml:
@@ -132,13 +155,13 @@ def _parse_subtask_line(line: str) -> Task | None:
         # extract slug from link target
         ref_str = link_target.rstrip("/").removesuffix(".md")
         ref = parse_task_ref(ref_str)
-        return Task(
+        return ParsedSubtask(
             id=task_id,
             slug=ref.slug,
+            ref=ref_str,
             extended=extended,
             title=task_title,
             status=sub_status,
-            subtasks=[],
         )
 
     # Inline style: - [ ] s01t01: Title
@@ -147,10 +170,13 @@ def _parse_subtask_line(line: str) -> Task | None:
         checkbox, task_id, task_title = m.group(1), m.group(2), m.group(3)
         sub_status = _resolve_subtask_status(checkbox, line, task_title)
         task_title = _strip_strikethrough(task_title, line)
-        return Task(
+        return ParsedSubtask(
             id=task_id,
+            slug=None,
+            ref=task_id,
             title=task_title,
             status=sub_status,
+            extended=False,
         )
 
     return None
@@ -225,7 +251,7 @@ def _parse_content(content: str, *, task_ref: str) -> _ParsedContent:
         desc_lines.pop()
     description = "\n".join(desc_lines) or None
 
-    subtasks: list[Task] = []
+    subtasks: list[ParsedSubtask] = []
     if subtasks_idx is not None:
         for line in body[subtasks_idx + 1 :]:
             parsed_sub = _parse_subtask_line(line)

@@ -263,6 +263,25 @@ def test_flush_twice_does_not_rewrite_unchanged() -> None:
     assert task_file.stat().st_mtime_ns == mtime_after_first_flush
 
 
+def test_dont_reset_nested_tasks(tasker_root: Path) -> None:
+    story_ref = create_task("Story").task_ref
+    task_ref = add_subtask(story_ref, "Task", details="File-based task").task_ref
+    subtask_ref = add_subtask(task_ref, "Subtask").task_ref
+
+    task_path = tasker_root / story_ref / f"{task_ref}.md"
+    assert task_path.exists()
+    assert subtask_ref in task_path.read_text()
+
+    # load and resave story
+    repo = TaskRepo(tasker_root)
+    _ = repo.resolve_ref(story_ref)
+    repo.flush_to_disk()
+
+    # ensure that subtask still exists
+    assert task_path.exists()
+    assert subtask_ref in task_path.read_text()
+
+
 # --- task statuses ---
 
 
@@ -316,7 +335,7 @@ def test_update_statuses_on_load() -> None:
     repo.flush_to_disk()
 
     # custom edit and mark subtask done
-    task_path = build_task_file_path(repo.root, task)
+    task_path = build_task_file_path(repo.root, task.ref, task.extended)
     patched_content = task_path.read_text().replace("[ ]", "[x]")
     task_path.write_text(patched_content)
 

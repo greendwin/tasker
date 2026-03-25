@@ -33,9 +33,9 @@ def test_start_multiple_updates_disk(story_id: str) -> None:
     t02 = add_subtask(story_id, "Task two").task_id
     assert_invoke(app, ["start", t01, t02])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert task.subtasks[0].status == TaskStatus.IN_PROGRESS
-    assert task.subtasks[1].status == TaskStatus.IN_PROGRESS
+    result = parse_task_file(task_file)
+    assert result.subtasks[0].status == TaskStatus.IN_PROGRESS
+    assert result.subtasks[1].status == TaskStatus.IN_PROGRESS
 
 
 def test_start_multiple_with_already_started(story_id: str) -> None:
@@ -63,10 +63,10 @@ def test_done_multiple_updates_disk(story_id: str) -> None:
     t02 = add_subtask(story_id, "Task two").task_id
     assert_invoke(app, ["done", t01, t02])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert task.subtasks[0].status == TaskStatus.DONE
-    assert task.subtasks[1].status == TaskStatus.DONE
-    assert task.status == TaskStatus.DONE
+    result = parse_task_file(task_file)
+    assert result.subtasks[0].status == TaskStatus.DONE
+    assert result.subtasks[1].status == TaskStatus.DONE
+    assert result.task.status == TaskStatus.DONE
 
 
 def test_done_multiple_with_already_finished(story_id: str) -> None:
@@ -94,9 +94,9 @@ def test_cancel_multiple_updates_disk(story_id: str) -> None:
     t02 = add_subtask(story_id, "Task two").task_id
     assert_invoke(app, ["cancel", t01, t02])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert task.subtasks[0].status == TaskStatus.CANCELLED
-    assert task.subtasks[1].status == TaskStatus.CANCELLED
+    result = parse_task_file(task_file)
+    assert result.subtasks[0].status == TaskStatus.CANCELLED
+    assert result.subtasks[1].status == TaskStatus.CANCELLED
 
 
 def test_cancel_multiple_with_already_cancelled(story_id: str) -> None:
@@ -128,10 +128,10 @@ def test_reset_multiple_updates_disk(story_id: str) -> None:
     assert_invoke(app, ["start", t02])
     assert_invoke(app, ["reset", t01, t02])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert task.subtasks[0].status == TaskStatus.PENDING
-    assert task.subtasks[1].status == TaskStatus.PENDING
-    assert task.status == TaskStatus.PENDING
+    result = parse_task_file(task_file)
+    assert result.subtasks[0].status == TaskStatus.PENDING
+    assert result.subtasks[1].status == TaskStatus.PENDING
+    assert result.task.status == TaskStatus.PENDING
 
 
 def test_reset_multiple_with_already_pending(story_id: str) -> None:

@@ -20,5 +20,5 @@ status: pending
 - [ ] s03t11: Task nested path is dependant on parents extended flag, make sure that it does not miss prev file
 - [x] ~~s03t12: In unified Task object slug still should be created, but it's ref should not include it until it upgraded~~
 - [x] s03t13: Support --details and --slug to 'add' command, support non-inline subtask
-- [ ] s03t14: BUG: Error: Cannot resolve task reference 's09t0101'
-- [ ] s03t15: BUG: 3-rd layer tasks are REMOVED on tasks validation (on idempotent operation!)
+- [x] s03t14: BUG: Error: Cannot resolve task reference 's09t0101'
+- [x] s03t15: BUG: 3-rd layer tasks are REMOVED on tasks validation (on idempotent operation!)

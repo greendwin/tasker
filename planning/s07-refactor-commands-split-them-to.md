@@ -1,6 +1,6 @@
 ---
 id: s07
-status: pending
+status: done
 ---
 
 # Refactor commands

@@ -125,5 +125,5 @@ def test_batch_add_to_done_parent_reopens_it(parent_id: str) -> None:
     assert_invoke(app, ["done", t01])
     # parent is now done; batch-adding should reopen it
     assert_invoke(app, ["add-many", parent_id], input="New task\n\n")
-    task = parse_task_file(_task_file(parent_id))
+    task = parse_task_file(_task_file(parent_id)).task
     assert task.status == TaskStatus.PENDING

@@ -33,8 +33,8 @@ def test_stop_leaf_task_parses_as_done(story_id: str) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["done", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert task.subtasks[0].status == TaskStatus.DONE
+    result = parse_task_file(task_file)
+    assert result.subtasks[0].status == TaskStatus.DONE
 
 
 def test_stop_already_done_task_succeeds(story_id: str) -> None:
@@ -49,15 +49,15 @@ def test_stop_in_progress_task_marks_done(story_id: str) -> None:
     assert_invoke(app, ["start", task_id])
     assert_invoke(app, ["done", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert task.subtasks[0].status == TaskStatus.DONE
+    result = parse_task_file(task_file)
+    assert result.subtasks[0].status == TaskStatus.DONE
 
 
 def test_stop_subtask_sets_parent_done_when_only_subtask(story_id: str) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["done", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
+    task = parse_task_file(task_file).task
     assert task.status == TaskStatus.DONE
 
 
@@ -68,7 +68,7 @@ def test_stop_subtask_parent_stays_in_progress_when_sibling_pending(
     add_subtask(story_id, "Task two")
     assert_invoke(app, ["done", t01])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
+    task = parse_task_file(task_file).task
     assert task.status == TaskStatus.PENDING
 
 
@@ -109,8 +109,8 @@ def test_done_force_marks_all_subtasks_done(story_id: str) -> None:
     add_subtask(story_id, "Subtask two")
     assert_invoke(app, ["done", "--force", story_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert all(t.status == TaskStatus.DONE for t in task.subtasks)
+    result = parse_task_file(task_file)
+    assert all(t.status == TaskStatus.DONE for t in result.subtasks)
 
 
 def test_done_force_marks_parent_done(story_id: str) -> None:
@@ -118,7 +118,7 @@ def test_done_force_marks_parent_done(story_id: str) -> None:
     add_subtask(story_id, "Subtask two")
     assert_invoke(app, ["done", "--force", story_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
+    task = parse_task_file(task_file).task
     assert task.status == TaskStatus.DONE
 
 
@@ -126,8 +126,8 @@ def test_done_force_on_leaf_task_works(story_id: str) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["done", "--force", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert task.subtasks[0].status == TaskStatus.DONE
+    result = parse_task_file(task_file)
+    assert result.subtasks[0].status == TaskStatus.DONE
 
 
 def test_done_force_prints_forcibly_closed_subtasks(story_id: str) -> None:

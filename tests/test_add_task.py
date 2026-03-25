@@ -58,13 +58,13 @@ def test_add_subtask_parse_roundtrip(parent_id: str) -> None:
     assert_invoke(app, ["add", parent_id, "First subtask"])
     assert_invoke(app, ["add", parent_id, "Second subtask"])
     task_file = next(Path("planning").glob(f"{parent_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert len(task.subtasks) == 2
-    assert task.subtasks[0].id == f"{parent_id}t01"
-    assert task.subtasks[0].title == "First subtask"
-    assert task.subtasks[0].status == TaskStatus.PENDING
-    assert task.subtasks[1].id == f"{parent_id}t02"
-    assert task.subtasks[1].title == "Second subtask"
+    result = parse_task_file(task_file)
+    assert len(result.subtasks) == 2
+    assert result.subtasks[0].id == f"{parent_id}t01"
+    assert result.subtasks[0].title == "First subtask"
+    assert result.subtasks[0].status == TaskStatus.PENDING
+    assert result.subtasks[1].id == f"{parent_id}t02"
+    assert result.subtasks[1].title == "Second subtask"
 
 
 # --- adding subtask updates parent status ---
@@ -76,8 +76,8 @@ def test_add_subtask_to_done_parent_reopens_it(parent_id: str) -> None:
     # parent is now done; adding a new subtask should reopen it
     assert_invoke(app, ["add", parent_id, "Second subtask"])
     task_file = next(Path("planning").glob(f"{parent_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert task.status == TaskStatus.PENDING
+    r = parse_task_file(task_file)
+    assert r.task.status == TaskStatus.PENDING
 
 
 def test_add_subtask_to_cancelled_parent_reopens_it(parent_id: str) -> None:
@@ -86,7 +86,7 @@ def test_add_subtask_to_cancelled_parent_reopens_it(parent_id: str) -> None:
     # parent is now cancelled; adding a new subtask should reopen it
     assert_invoke(app, ["add", parent_id, "Second subtask"])
     task_file = next(Path("planning").glob(f"{parent_id}-*.md"))
-    task = parse_task_file(task_file)
+    task = parse_task_file(task_file).task
     assert task.status == TaskStatus.PENDING
 
 
@@ -96,7 +96,7 @@ def test_add_subtask_to_in_progress_parent_keeps_status(parent_id: str) -> None:
     # parent is in-progress; adding another subtask keeps it in-progress
     assert_invoke(app, ["add", parent_id, "Second subtask"])
     task_file = next(Path("planning").glob(f"{parent_id}-*.md"))
-    task = parse_task_file(task_file)
+    task = parse_task_file(task_file).task
     assert task.status == TaskStatus.IN_PROGRESS
 
 
@@ -187,7 +187,7 @@ def test_add_detailed_subtask_child_parses_correctly(parent_id: str) -> None:
     )
     parent_dir = next(Path("planning").glob(f"{parent_id}-*/"))
     child_file = next(parent_dir.glob(f"{parent_id}t01-*.md"))
-    child = parse_task_file(child_file)
+    child = parse_task_file(child_file).task
     assert child.id == f"{parent_id}t01"
     assert child.title == "Write CLI spec"
     assert child.description == "Cover all commands"

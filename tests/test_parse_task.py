@@ -2,12 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from tasker.base_types import (
-    Task,
-    TaskStatus,
-)
+from tasker.base_types import Task, TaskStatus
 from tasker.exceptions import TaskValidateError
-from tasker.parse import parse_task, parse_task_file
+from tasker.parse import ParsedSubtask, parse_task, parse_task_file
 from tasker.render import render_task, write_task_file
 
 _DIR = Path("/tmp/tasks")
@@ -35,49 +32,49 @@ def _write_task(
 
 
 def test_parse_title() -> None:
-    task = parse_task_file(_write_task("s01-my-task.md", "My task"))
+    task = parse_task_file(_write_task("s01-my-task.md", "My task")).task
     assert task.title == "My task"
 
 
 def test_parse_id_and_slug() -> None:
-    task = parse_task_file(_write_task("s01-my-task.md", "My task"))
+    task = parse_task_file(_write_task("s01-my-task.md", "My task")).task
     assert task.id == "s01"
     assert task.slug == "my-task"
 
 
 def test_parse_status_pending() -> None:
-    task = parse_task_file(_write_task("s01-my-task.md", "My task"))
+    task = parse_task_file(_write_task("s01-my-task.md", "My task")).task
     assert task.status == TaskStatus.PENDING
 
 
 def test_parse_status_in_progress() -> None:
     task = parse_task_file(
         _write_task("s01-my-task.md", "My task", status=TaskStatus.IN_PROGRESS)
-    )
+    ).task
     assert task.status == TaskStatus.IN_PROGRESS
 
 
 def test_parse_no_description() -> None:
-    task = parse_task_file(_write_task("s01-my-task.md", "My task"))
+    task = parse_task_file(_write_task("s01-my-task.md", "My task")).task
     assert task.description is None
 
 
 def test_parse_description() -> None:
     task = parse_task_file(
         _write_task("s01-my-task.md", "My task", description="Some details")
-    )
+    ).task
     assert task.description == "Some details"
 
 
 def test_parse_multiline_description() -> None:
     task = parse_task_file(
         _write_task("s01-my-task.md", "My task", description="Line one\nLine two")
-    )
+    ).task
     assert task.description == "Line one\nLine two"
 
 
 def test_parse_simple_file_is_basic() -> None:
-    task = parse_task_file(_write_task("s01-my-task.md", "My task"))
+    task = parse_task_file(_write_task("s01-my-task.md", "My task")).task
     assert isinstance(task, Task)
     assert not task.extended
 
@@ -89,12 +86,10 @@ def test_parse_detailed_dir() -> None:
         slug="my-task",
         extended=True,
         title="My task",
-        status=TaskStatus.PENDING,
-        subtasks=[],
     )
     write_task_file(_DIR, task, content=render_task(task))
 
-    parsed = parse_task_file(_DIR / "s01-my-task")
+    parsed = parse_task_file(_DIR / "s01-my-task").task
     assert isinstance(parsed, Task)
     assert parsed.extended
     assert parsed.id == "s01"
@@ -102,7 +97,7 @@ def test_parse_detailed_dir() -> None:
 
 
 def test_parse_returns_file_task() -> None:
-    task = parse_task_file(_write_task("s01-my-task.md", "My task"))
+    task = parse_task_file(_write_task("s01-my-task.md", "My task")).task
     assert isinstance(task, Task)
 
 
@@ -211,7 +206,7 @@ def test_parse_invalid_filename_error_has_task_ref() -> None:
 # --- cancelled subtask strikethrough parsing ---
 
 
-def _make_task_with_subtask_line(subtask_line: str) -> Task:
+def _make_task_with_subtask_line(subtask_line: str) -> tuple[Task, list[ParsedSubtask]]:
     content = (
         "---\nid: s01\nstatus: pending\n---\n\n"
         "# My task\n\n## Subtasks\n\n" + subtask_line + "\n"
@@ -220,18 +215,18 @@ def _make_task_with_subtask_line(subtask_line: str) -> Task:
 
 
 def test_parse_cancelled_subtask_new_format() -> None:
-    task = _make_task_with_subtask_line("- [x] ~~s01t01: My subtask~~")
-    assert task.subtasks[0].status == TaskStatus.CANCELLED
-    assert task.subtasks[0].title == "My subtask"
+    _, subtasks = _make_task_with_subtask_line("- [x] ~~s01t01: My subtask~~")
+    assert subtasks[0].status == TaskStatus.CANCELLED
+    assert subtasks[0].title == "My subtask"
 
 
 def test_parse_cancelled_subtask_legacy_format() -> None:
-    task = _make_task_with_subtask_line("- [x] s01t01: ~~My subtask~~")
-    assert task.subtasks[0].status == TaskStatus.CANCELLED
-    assert task.subtasks[0].title == "My subtask"
+    _, subtasks = _make_task_with_subtask_line("- [x] s01t01: ~~My subtask~~")
+    assert subtasks[0].status == TaskStatus.CANCELLED
+    assert subtasks[0].title == "My subtask"
 
 
 def test_parse_non_cancelled_subtask_no_strikethrough() -> None:
-    task = _make_task_with_subtask_line("- [ ] s01t01: My subtask")
-    assert task.subtasks[0].status == TaskStatus.PENDING
-    assert task.subtasks[0].title == "My subtask"
+    _, subtasks = _make_task_with_subtask_line("- [ ] s01t01: My subtask")
+    assert subtasks[0].status == TaskStatus.PENDING
+    assert subtasks[0].title == "My subtask"

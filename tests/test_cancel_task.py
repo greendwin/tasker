@@ -33,16 +33,16 @@ def test_cancel_leaf_task_parses_as_cancelled(story_id: str) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["cancel", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert task.subtasks[0].status == TaskStatus.CANCELLED
+    result = parse_task_file(task_file)
+    assert result.subtasks[0].status == TaskStatus.CANCELLED
 
 
 def test_cancel_preserves_title_without_strikethrough(story_id: str) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["cancel", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert task.subtasks[0].title == "Leaf task"
+    result = parse_task_file(task_file)
+    assert result.subtasks[0].title == "Leaf task"
 
 
 def test_cancel_already_cancelled_succeeds(story_id: str) -> None:
@@ -57,8 +57,8 @@ def test_cancel_in_progress_task(story_id: str) -> None:
     assert_invoke(app, ["start", task_id])
     assert_invoke(app, ["cancel", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert task.subtasks[0].status == TaskStatus.CANCELLED
+    result = parse_task_file(task_file)
+    assert result.subtasks[0].status == TaskStatus.CANCELLED
 
 
 def test_cancel_done_task(story_id: str) -> None:
@@ -67,8 +67,8 @@ def test_cancel_done_task(story_id: str) -> None:
     result = assert_invoke(app, ["cancel", task_id])
     assert "cancelled" in result.output
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert task.subtasks[0].status == TaskStatus.CANCELLED
+    parsed = parse_task_file(task_file)
+    assert parsed.subtasks[0].status == TaskStatus.CANCELLED
 
 
 def test_cancel_subtask_sets_parent_cancelled_when_only_subtask(
@@ -77,7 +77,7 @@ def test_cancel_subtask_sets_parent_cancelled_when_only_subtask(
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["cancel", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
+    task = parse_task_file(task_file).task
     assert task.status == TaskStatus.CANCELLED
 
 
@@ -87,7 +87,7 @@ def test_cancel_all_subtasks_sets_parent_cancelled(story_id: str) -> None:
     assert_invoke(app, ["cancel", t01])
     assert_invoke(app, ["cancel", t02])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
+    task = parse_task_file(task_file).task
     assert task.status == TaskStatus.CANCELLED
 
 
@@ -97,7 +97,7 @@ def test_mixed_done_and_cancelled_sets_parent_done(story_id: str) -> None:
     assert_invoke(app, ["done", t01])
     assert_invoke(app, ["cancel", t02])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
+    task = parse_task_file(task_file).task
     assert task.status == TaskStatus.DONE
 
 
@@ -108,7 +108,7 @@ def test_cancel_subtask_parent_stays_pending_when_sibling_pending(
     add_subtask(story_id, "Task two")
     assert_invoke(app, ["cancel", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
+    task = parse_task_file(task_file).task
     assert task.status == TaskStatus.PENDING
 
 
@@ -137,8 +137,8 @@ def test_cancel_force_marks_all_subtasks_cancelled(story_id: str) -> None:
     add_subtask(story_id, "Subtask two")
     assert_invoke(app, ["cancel", "--force", story_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert all(t.status == TaskStatus.CANCELLED for t in task.subtasks)
+    result = parse_task_file(task_file)
+    assert all(t.status == TaskStatus.CANCELLED for t in result.subtasks)
 
 
 def test_cancel_force_marks_parent_cancelled(story_id: str) -> None:
@@ -146,7 +146,7 @@ def test_cancel_force_marks_parent_cancelled(story_id: str) -> None:
     add_subtask(story_id, "Subtask two")
     assert_invoke(app, ["cancel", "--force", story_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
+    task = parse_task_file(task_file).task
     assert task.status == TaskStatus.CANCELLED
 
 
@@ -177,9 +177,9 @@ def test_cancel_force_preserves_done_subtasks(story_id: str) -> None:
     assert_invoke(app, ["done", t01])
     assert_invoke(app, ["cancel", "--force", story_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert task.subtasks[0].status == TaskStatus.DONE
-    assert task.subtasks[1].status == TaskStatus.CANCELLED
+    result = parse_task_file(task_file)
+    assert result.subtasks[0].status == TaskStatus.DONE
+    assert result.subtasks[1].status == TaskStatus.CANCELLED
 
 
 def test_cancel_nonexistent_task_fails() -> None:
@@ -190,8 +190,8 @@ def test_cancel_force_on_leaf_task_works(story_id: str) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["cancel", "--force", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert task.subtasks[0].status == TaskStatus.CANCELLED
+    result = parse_task_file(task_file)
+    assert result.subtasks[0].status == TaskStatus.CANCELLED
 
 
 # --- done --force skips cancelled subtasks ---

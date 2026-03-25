@@ -17,7 +17,7 @@ class TaskStatus(str, Enum):
 class Task(BaseModel):
     id: str  # unique id that can be used to reference a task
     title: str  # short summary of a task
-    status: TaskStatus
+    status: TaskStatus = TaskStatus.PENDING
 
     # file-task fields (None/defaults for inline tasks)
     slug: str | None = None

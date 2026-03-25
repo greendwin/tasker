@@ -33,8 +33,8 @@ def test_start_leaf_task_parses_as_in_progress(story_id: str) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["start", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
-    assert task.subtasks[0].status == TaskStatus.IN_PROGRESS
+    result = parse_task_file(task_file)
+    assert result.subtasks[0].status == TaskStatus.IN_PROGRESS
 
 
 def test_start_already_in_progress_succeeds(story_id: str) -> None:
@@ -63,7 +63,7 @@ def test_restart_done_task(story_id: str) -> None:
 
     result = assert_invoke(app, ["start", task_id])
     assert "restart" in result.output
-    task = parse_task_file(task_file)
+    task = parse_task_file(task_file).task
     assert task.status == TaskStatus.IN_PROGRESS
 
 
@@ -108,7 +108,7 @@ def test_start_subtask_sets_parent_in_progress(story_id: str) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["start", task_id])
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
+    task = parse_task_file(task_file).task
     assert task.status == TaskStatus.IN_PROGRESS
 
 
@@ -119,7 +119,7 @@ def test_start_subtask_parent_stays_pending_when_others_all_pending(
     add_subtask(story_id, "Task one")
     add_subtask(story_id, "Task two")
     task_file = next(Path("planning").glob(f"{story_id}-*.md"))
-    task = parse_task_file(task_file)
+    task = parse_task_file(task_file).task
     assert task.status == TaskStatus.PENDING
 
 
