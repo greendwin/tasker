@@ -1,14 +1,14 @@
 ---
 id: s04
-status: pending
+status: done
 ---
 
 # task updating
 
 ## Subtasks
 
-- [ ] s04t01: edit details
-- [ ] s04t02: edit title
-- [ ] s04t03: edit slug
-- [ ] s04t04: edit status (TBD)
-- [ ] s04t05: Merge this task into s03
+- [x] ~~s04t01: edit details~~
+- [x] ~~s04t02: edit title~~
+- [x] ~~s04t03: edit slug~~
+- [x] ~~s04t04: edit status (TBD)~~
+- [x] s04t05: Merge this task into s03

@@ -70,13 +70,15 @@ def test_next_child_id_accepts_slug_ref() -> None:
     assert repo._next_child_id(task) == f"{story_id}t01"
 
 
-def test_next_child_id_inline_task_raises() -> None:
+def test_add_subtask_upgrades_inline_parent() -> None:
     story_id = create_task("My story").task_id
     inline_id = add_subtask(story_id, "Inline subtask").task_id
     repo = make_repo()
     parent = repo.resolve_ref(inline_id)
-    with pytest.raises(NotImplementedError):
-        repo.add_subtask(parent, title="Nested subtask")
+    child = repo.add_subtask(parent, title="Nested subtask")
+    assert parent.slug is not None
+    assert not parent.is_inline
+    assert child.id == f"{inline_id}01"
 
 
 def test_next_child_id_unknown_ref_raises() -> None:
@@ -220,13 +222,18 @@ def test_repo_add_subtask_writes_after_flush() -> None:
     assert child.id in content
 
 
-def test_repo_add_subtask_inline_parent_raises() -> None:
+def test_repo_add_subtask_upgrades_inline_parent() -> None:
     story_id = create_task("My story").task_id
     t01 = add_subtask(story_id, "First subtask").task_id
     repo = make_repo()
     parent = repo.resolve_ref(t01)
-    with pytest.raises(NotImplementedError):
-        repo.add_subtask(parent, title="Nested subtask")
+    child = repo.add_subtask(parent, title="Nested subtask")
+    assert parent.slug == "first-subtask"
+    assert child.title == "Nested subtask"
+    repo.flush_to_disk()
+    # parent should now be file-backed in parent's extended dir
+    story_dir = next(Path("planning").glob(f"{story_id}-*/"))
+    assert (story_dir / f"{t01}-first-subtask.md").exists()
 
 
 # --- flush_tasks_to_disk ---

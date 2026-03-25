@@ -181,6 +181,22 @@ def test_add_inline_then_detailed_subtask(parent_id: str) -> None:
     assert f"[{parent_id}t02](" in readme
 
 
+def test_add_subtask_to_inline_upgrades_parent(parent_id: str) -> None:
+    t01 = add_subtask(parent_id, "Inline task").task_id
+    result = assert_invoke(app, ["add", t01, "Nested subtask"])
+    assert f"{t01}01" in result.output
+    # inline parent was upgraded to file-backed
+    parent_dir = next(Path("planning").glob(f"{parent_id}-*/"))
+    assert (parent_dir / f"{t01}-inline-task.md").exists()
+    task = parse_task_file(parent_dir / f"{t01}-inline-task.md").task
+    assert task.id == t01
+    assert task.title == "Inline task"
+    # child is listed as inline subtask
+    subtasks = parse_task_file(parent_dir / f"{t01}-inline-task.md").subtasks
+    assert len(subtasks) == 1
+    assert subtasks[0].title == "Nested subtask"
+
+
 def test_add_detailed_subtask_child_parses_correctly(parent_id: str) -> None:
     assert_invoke(
         app, ["add", parent_id, "Write CLI spec", "--details", "Cover all commands"]

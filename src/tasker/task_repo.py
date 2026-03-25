@@ -79,7 +79,8 @@ class TaskRepo:
         title = title[:1].upper() + title[1:]
 
         if parent.is_inline:
-            raise NotImplementedError("Task upgrades are not supported yet")
+            # upgrade inline task to basic (file-backed) form
+            parent.slug = generate_slug(parent.title)
 
         child_id = self._next_child_id(parent)
 
