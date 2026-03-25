@@ -1,7 +1,7 @@
 from typer.testing import CliRunner
 
+from tasker.cli import app
 from tasker.exceptions import TaskerError
-from tasker.main import app
 
 _runner = CliRunner()
 

@@ -1,0 +1,101 @@
+import sys
+from typing import Annotated, Optional
+
+import typer
+from typer_di import Depends
+
+from tasker.task_repo import TaskRepo
+from tasker.utils import console
+
+from ._common import app, get_task_repo
+
+
+@app.command("new", help="Create a new top-level task.")
+def cmd_new_task(
+    *,
+    title: Annotated[str, typer.Argument(help="Task title.")],
+    details: Annotated[
+        Optional[str], typer.Option("--details", "-d", help="Task description.")
+    ] = None,
+    slug: Annotated[
+        Optional[str], typer.Option("--slug", help="Override auto-derived slug.")
+    ] = None,
+    extended: Annotated[
+        bool, typer.Option("--extended", help="Create task as a directory.")
+    ] = False,
+    repo: TaskRepo = Depends(get_task_repo),
+) -> None:
+    with console.catching_output():
+        task = repo.create_root_task(
+            title=title, description=details, slug=slug, extended=extended
+        )
+        repo.flush_to_disk()
+
+        console.print(
+            f"[green]Task [blue]{task.ref}[/blue] created[/green]",
+            json_output={"task_ref": task.ref},
+        )
+
+
+@app.command("add", help="Add a subtask to an existing task.")
+def cmd_add_task(
+    *,
+    parent_ref: Annotated[str, typer.Argument(help="Parent task ID.")],
+    title: Annotated[str, typer.Argument(help="Subtask title.")],
+    details: Annotated[
+        Optional[str], typer.Option("--details", "-d", help="Task description.")
+    ] = None,
+    slug: Annotated[
+        Optional[str], typer.Option("--slug", help="Override auto-derived slug.")
+    ] = None,
+    repo: TaskRepo = Depends(get_task_repo),
+) -> None:
+    with console.catching_output():
+        parent = repo.resolve_ref(parent_ref)
+        child = repo.add_subtask(parent, title=title, description=details, slug=slug)
+        repo.flush_to_disk()
+
+        console.print(
+            f"[green]Task [blue]{child.ref}[/blue]"
+            f" added to [blue]{parent.ref}[/blue][/green]",
+            json_output={"task_ref": child.ref},
+        )
+
+
+@app.command("add-many", help="Interactively add multiple subtasks.")
+def cmd_add_many_tasks(
+    *,
+    parent_ref: Annotated[str, typer.Argument(help="Parent task ID.")],
+    repo: TaskRepo = Depends(get_task_repo),
+) -> None:
+    with console.catching_output():
+        parent = repo.resolve_ref(parent_ref)
+        console.print(
+            f"[cyan]Adding tasks to [blue]{parent.ref}[/blue][/cyan]"
+            " (empty line to finish):",
+            json_output={"parent_ref": parent_ref},
+        )
+
+        task_refs: list[str] = []
+        while True:
+            console.print("  [dim]>[/dim] ", end="")
+            line = sys.stdin.readline()
+            if not line or not line.strip():
+                break
+            child = repo.add_subtask(parent, title=line.strip())
+            repo.flush_to_disk()
+            task_refs.append(child.ref)
+            console.print(f"  [green]task [blue]{child.ref}[/blue] added[/green]")
+
+        if not task_refs:
+            console.print(
+                "[yellow]No tasks added.[/yellow]",
+                json_output={"task_refs": []},
+            )
+            return
+
+        console.print(
+            f"[green]Done:[/green] {len(task_refs)} task(s) added"
+            f" to [blue]{parent.id}[/blue]",
+            json_output={"task_refs": task_refs},
+        )

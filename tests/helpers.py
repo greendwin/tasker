@@ -5,7 +5,7 @@ from click.testing import Result
 from typer import Typer
 from typer.testing import CliRunner
 
-from tasker.main import app
+from tasker.cli import app
 from tasker.parse import parse_task_ref
 
 _runner = CliRunner()

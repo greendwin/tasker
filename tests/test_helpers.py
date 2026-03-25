@@ -1,6 +1,6 @@
 import pytest
 
-from tasker.main import app
+from tasker.cli import app
 
 from .helpers import assert_invoke
 

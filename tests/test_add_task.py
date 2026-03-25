@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from tasker.base_types import TaskStatus
-from tasker.main import app
+from tasker.cli import app
 from tasker.parse import parse_task_file
 
 from .helpers import assert_invoke, create_task

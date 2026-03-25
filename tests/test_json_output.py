@@ -3,7 +3,7 @@ from typing import Any
 
 from typer.testing import CliRunner
 
-from tasker.main import app
+from tasker.cli import app
 
 _runner = CliRunner()
 

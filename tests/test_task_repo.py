@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
+from tasker.cli import app
 from tasker.exceptions import TaskerError
-from tasker.main import app
 from tasker.render import build_task_file_path
 from tasker.task_repo import TaskRepo, generate_slug
 
