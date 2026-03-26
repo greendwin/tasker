@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 from tasker.base_types import Task, TaskStatus, is_root_task_id
-from tasker.exceptions import TaskHasSubtasksError, TaskValidateError
+from tasker.exceptions import TaskArchivedError, TaskHasSubtasksError, TaskValidateError
 from tasker.parse import ParsedSubtask, detect_task_type, parse_task, parse_task_ref
 from tasker.render import build_task_file_path, render_task, write_task_file
 
@@ -245,6 +245,8 @@ class TaskRepo:
 
         candidates = list(self.root.glob(f"{root_id}-*"))
         if not candidates:
+            if any(self.archive_root.glob(f"{root_id}-*")):
+                raise TaskArchivedError(root_id)
             raise TaskValidateError(f"Task {root_id!r} not found", task_ref=root_id)
 
         if len(candidates) > 1:

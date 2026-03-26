@@ -7,7 +7,7 @@ from tasker.base_types import Task, TaskStatus, is_nonleaf_task
 from tasker.task_repo import TaskRepo
 from tasker.utils import JsonAppend, console
 
-from ._common import app, get_task_repo
+from ._common import app, get_task_repo, resolve_ref
 
 
 @app.command("start", help="Mark task(s) as in-progress.")
@@ -20,7 +20,7 @@ def cmd_start_task(
 ) -> None:
     with console.catching_output():
         for task_ref in task_refs:
-            task = repo.resolve_ref(task_ref)
+            task = resolve_ref(repo, task_ref)
 
             if task.status == TaskStatus.IN_PROGRESS:
                 # resave tasks in case of outdated statuses
@@ -86,7 +86,7 @@ def cmd_reset_task(
 ) -> None:
     with console.catching_output():
         for task_ref in task_refs:
-            task = repo.resolve_ref(task_ref)
+            task = resolve_ref(repo, task_ref)
 
             if task.status == TaskStatus.PENDING:
                 # resave tasks in case of outdated statuses
@@ -131,7 +131,7 @@ def cmd_cancel_task(
 ) -> None:
     with console.catching_output():
         for task_ref in task_refs:
-            task = repo.resolve_ref(task_ref)
+            task = resolve_ref(repo, task_ref)
 
             if task.status == TaskStatus.CANCELLED:
                 # resave tasks in case of outdated statuses
@@ -199,7 +199,7 @@ def cmd_done_task(
 ) -> None:
     with console.catching_output():
         for task_ref in task_refs:
-            task = repo.resolve_ref(task_ref)
+            task = resolve_ref(repo, task_ref)
 
             if task.status == TaskStatus.DONE:
                 # resave tasks in case of outdated statuses

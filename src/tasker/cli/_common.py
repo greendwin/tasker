@@ -4,6 +4,9 @@ from typing import Annotated
 import typer
 from typer_di import TyperDI
 
+from tasker.base_types import Task
+from tasker.exceptions import TaskArchivedError
+from tasker.parse import parse_task_ref
 from tasker.task_repo import TaskRepo
 from tasker.utils import console
 
@@ -33,3 +36,16 @@ def get_task_repo() -> TaskRepo:
     planning = Path("planning")
     planning.mkdir(exist_ok=True)
     return TaskRepo(planning)
+
+
+def resolve_ref(repo: TaskRepo, task_ref: str) -> Task:
+    """Resolve a task ref, reporting archived tasks in human-friendly format."""
+    try:
+        return repo.resolve_ref(task_ref)
+    except TaskArchivedError as ex:
+        if console.json_output:
+            raise
+
+        console.print(f"[yellow]Task [blue]{ex.task_ref}[/blue] is archived.[/yellow]")
+        console.print(f"Unarchive it first before performing actions on it.")
+        raise typer.Exit(1) from ex

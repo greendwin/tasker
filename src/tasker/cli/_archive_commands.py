@@ -7,7 +7,7 @@ from tasker.base_types import Task, is_root_task_id
 from tasker.task_repo import TaskRepo
 from tasker.utils import JsonAppend, console
 
-from ._common import app, get_task_repo
+from ._common import app, get_task_repo, resolve_ref
 
 
 @app.command("archive", help="Archive a completed root task.")
@@ -21,7 +21,7 @@ def cmd_archive_task(
     repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
-        task = repo.resolve_ref(task_ref)
+        task = resolve_ref(repo, task_ref)
 
         if not console.json_output and not is_root_task_id(task.id):
             _report_not_root_task(task)

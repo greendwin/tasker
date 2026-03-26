@@ -7,7 +7,7 @@ from typer_di import Depends
 from tasker.task_repo import TaskRepo
 from tasker.utils import console
 
-from ._common import app, get_task_repo
+from ._common import app, get_task_repo, resolve_ref
 
 
 @app.command("new", help="Create a new top-level task.")
@@ -51,7 +51,7 @@ def cmd_add_task(
     repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
-        parent = repo.resolve_ref(parent_ref)
+        parent = resolve_ref(repo, parent_ref)
         child = repo.add_subtask(parent, title=title, description=details, slug=slug)
         repo.flush_to_disk()
 
@@ -69,7 +69,7 @@ def cmd_add_many_tasks(
     repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
-        parent = repo.resolve_ref(parent_ref)
+        parent = resolve_ref(repo, parent_ref)
         console.print(
             f"[cyan]Adding tasks to [blue]{parent.ref}[/blue][/cyan]"
             " (empty line to finish):",

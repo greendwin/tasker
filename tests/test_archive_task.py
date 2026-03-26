@@ -171,3 +171,56 @@ def test_new_task_skips_archived_ids(story_id: str) -> None:
     # create a new task — its ID must be higher than the archived one
     new = create_task("Second story")
     assert new.task_id > story_id
+
+
+# --- actions on archived task report that it is archived ---
+
+
+def _archive_story(story_id: str) -> None:
+    assert_invoke(app, ["done", "--force", story_id])
+    assert_invoke(app, ["archive", story_id])
+
+
+def test_start_archived_task_reports_archived(story_id: str) -> None:
+    _archive_story(story_id)
+    result = assert_invoke(app, ["start", story_id], expect_error=True)
+    assert "archived" in result.output.lower()
+    assert "unarchive" in result.output.lower()
+
+
+def test_done_archived_task_reports_archived(story_id: str) -> None:
+    _archive_story(story_id)
+    result = assert_invoke(app, ["done", story_id], expect_error=True)
+    assert "archived" in result.output.lower()
+
+
+def test_cancel_archived_task_reports_archived(story_id: str) -> None:
+    _archive_story(story_id)
+    result = assert_invoke(app, ["cancel", story_id], expect_error=True)
+    assert "archived" in result.output.lower()
+
+
+def test_reset_archived_task_reports_archived(story_id: str) -> None:
+    _archive_story(story_id)
+    result = assert_invoke(app, ["reset", story_id], expect_error=True)
+    assert "archived" in result.output.lower()
+
+
+def test_add_to_archived_task_reports_archived(story_id: str) -> None:
+    _archive_story(story_id)
+    result = assert_invoke(app, ["add", story_id, "New subtask"], expect_error=True)
+    assert "archived" in result.output.lower()
+
+
+def test_archive_already_archived_task_reports_archived(story_id: str) -> None:
+    _archive_story(story_id)
+    result = assert_invoke(app, ["archive", story_id], expect_error=True)
+    assert "archived" in result.output.lower()
+
+
+def test_json_archived_task_reports_archived(story_id: str) -> None:
+    _archive_story(story_id)
+    result = assert_invoke(app, ["--json-output", "start", story_id], expect_error=True)
+    data = json.loads(result.output)
+    assert "error" in data
+    assert data.get("archived") is True
