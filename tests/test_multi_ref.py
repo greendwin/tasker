@@ -28,11 +28,11 @@ def test_start_multiple_tasks(story_id: str) -> None:
     assert t02 in result.output
 
 
-def test_start_multiple_updates_disk(story_id: str) -> None:
+def test_start_multiple_updates_disk(story_id: str, tasks_root: Path) -> None:
     t01 = add_subtask(story_id, "Task one").task_id
     t02 = add_subtask(story_id, "Task two").task_id
     assert_invoke(app, ["start", t01, t02])
-    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
+    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
     result = parse_task_file(task_file)
     assert result.subtasks[0].status == TaskStatus.IN_PROGRESS
     assert result.subtasks[1].status == TaskStatus.IN_PROGRESS
@@ -58,11 +58,11 @@ def test_done_multiple_tasks(story_id: str) -> None:
     assert t02 in result.output
 
 
-def test_done_multiple_updates_disk(story_id: str) -> None:
+def test_done_multiple_updates_disk(story_id: str, tasks_root: Path) -> None:
     t01 = add_subtask(story_id, "Task one").task_id
     t02 = add_subtask(story_id, "Task two").task_id
     assert_invoke(app, ["done", t01, t02])
-    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
+    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
     result = parse_task_file(task_file)
     assert result.subtasks[0].status == TaskStatus.DONE
     assert result.subtasks[1].status == TaskStatus.DONE
@@ -89,11 +89,11 @@ def test_cancel_multiple_tasks(story_id: str) -> None:
     assert t02 in result.output
 
 
-def test_cancel_multiple_updates_disk(story_id: str) -> None:
+def test_cancel_multiple_updates_disk(story_id: str, tasks_root: Path) -> None:
     t01 = add_subtask(story_id, "Task one").task_id
     t02 = add_subtask(story_id, "Task two").task_id
     assert_invoke(app, ["cancel", t01, t02])
-    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
+    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
     result = parse_task_file(task_file)
     assert result.subtasks[0].status == TaskStatus.CANCELLED
     assert result.subtasks[1].status == TaskStatus.CANCELLED
@@ -121,13 +121,13 @@ def test_reset_multiple_tasks(story_id: str) -> None:
     assert t02 in result.output
 
 
-def test_reset_multiple_updates_disk(story_id: str) -> None:
+def test_reset_multiple_updates_disk(story_id: str, tasks_root: Path) -> None:
     t01 = add_subtask(story_id, "Task one").task_id
     t02 = add_subtask(story_id, "Task two").task_id
     assert_invoke(app, ["start", t01])
     assert_invoke(app, ["start", t02])
     assert_invoke(app, ["reset", t01, t02])
-    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
+    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
     result = parse_task_file(task_file)
     assert result.subtasks[0].status == TaskStatus.PENDING
     assert result.subtasks[1].status == TaskStatus.PENDING

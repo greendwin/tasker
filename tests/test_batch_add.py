@@ -15,43 +15,46 @@ def parent_id() -> str:
     return create_task("Batch story").task_id
 
 
-def _task_file(parent_id: str) -> Path:
-    return next(Path("tasker").glob(f"{parent_id}-*.md"))
+def _task_file(parent_id: str, tasks_root: Path) -> Path:
+    return next(tasks_root.glob(f"{parent_id}-*.md"))
 
 
 # --- basic creation ---
 
 
-def test_batch_creates_single_task(parent_id: str) -> None:
+def test_batch_creates_single_task(parent_id: str, tasks_root: Path) -> None:
     assert_invoke(app, ["add-many", parent_id], input="First task\n\n")
-    assert f"- [ ] {parent_id}t01: First task" in _task_file(parent_id).read_text()
+    assert (
+        f"- [ ] {parent_id}t01: First task"
+        in _task_file(parent_id, tasks_root).read_text()
+    )
 
 
-def test_batch_creates_multiple_tasks(parent_id: str) -> None:
+def test_batch_creates_multiple_tasks(parent_id: str, tasks_root: Path) -> None:
     assert_invoke(app, ["add-many", parent_id], input="Task one\nTask two\n\n")
-    content = _task_file(parent_id).read_text()
+    content = _task_file(parent_id, tasks_root).read_text()
     assert f"- [ ] {parent_id}t01: Task one" in content
     assert f"- [ ] {parent_id}t02: Task two" in content
 
 
-def test_batch_titles_are_capitalized(parent_id: str) -> None:
+def test_batch_titles_are_capitalized(parent_id: str, tasks_root: Path) -> None:
     assert_invoke(app, ["add-many", parent_id], input="lowercase title\n\n")
-    assert "Lowercase title" in _task_file(parent_id).read_text()
+    assert "Lowercase title" in _task_file(parent_id, tasks_root).read_text()
 
 
 # --- stopping conditions ---
 
 
-def test_batch_stops_on_empty_line(parent_id: str) -> None:
+def test_batch_stops_on_empty_line(parent_id: str, tasks_root: Path) -> None:
     assert_invoke(app, ["add-many", parent_id], input="First\n\nIgnored\n")
-    content = _task_file(parent_id).read_text()
+    content = _task_file(parent_id, tasks_root).read_text()
     assert f"{parent_id}t01" in content
     assert "Ignored" not in content
 
 
-def test_batch_stops_on_eof(parent_id: str) -> None:
+def test_batch_stops_on_eof(parent_id: str, tasks_root: Path) -> None:
     assert_invoke(app, ["add-many", parent_id], input="First\nSecond")
-    content = _task_file(parent_id).read_text()
+    content = _task_file(parent_id, tasks_root).read_text()
     assert f"{parent_id}t01" in content
     assert f"{parent_id}t02" in content
 
@@ -120,10 +123,10 @@ def test_batch_json_empty_input_returns_empty_list(parent_id: str) -> None:
 # --- adding subtasks updates parent status ---
 
 
-def test_batch_add_to_done_parent_reopens_it(parent_id: str) -> None:
+def test_batch_add_to_done_parent_reopens_it(parent_id: str, tasks_root: Path) -> None:
     t01 = add_subtask(parent_id, "First subtask").task_id
     assert_invoke(app, ["done", t01])
     # parent is now done; batch-adding should reopen it
     assert_invoke(app, ["add-many", parent_id], input="New task\n\n")
-    task = parse_task_file(_task_file(parent_id)).task
+    task = parse_task_file(_task_file(parent_id, tasks_root)).task
     assert task.status == TaskStatus.PENDING

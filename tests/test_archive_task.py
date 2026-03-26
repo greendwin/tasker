@@ -30,24 +30,28 @@ def test_archive_cancelled_task(story_id: str) -> None:
     assert "archived" in result.output
 
 
-def test_archive_moves_basic_file_to_archive(story_id: str) -> None:
+def test_archive_moves_basic_file_to_archive(
+    tasks_root: Path, tasks_archive_root: Path, story_id: str
+) -> None:
     assert_invoke(app, ["done", "--force", story_id])
-    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
+    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
     filename = task_file.name
     assert_invoke(app, ["archive", story_id])
     assert not task_file.exists()
-    assert (Path("tasker") / "archive" / filename).exists()
+    assert (tasks_archive_root / filename).exists()
 
 
-def test_archive_moves_extended_dir_to_archive(story_id: str) -> None:
+def test_archive_moves_extended_dir_to_archive(
+    tasks_root: Path, tasks_archive_root: Path, story_id: str
+) -> None:
     add_subtask(story_id, "Subtask", details="Some details")
     assert_invoke(app, ["done", "--force", story_id])
-    story_dir = next(Path("tasker").glob(f"{story_id}-*/"))
+    story_dir = next(tasks_root.glob(f"{story_id}-*/"))
     dirname = story_dir.name
     assert_invoke(app, ["archive", story_id])
     assert not story_dir.exists()
-    assert (Path("tasker") / "archive" / dirname).is_dir()
-    assert (Path("tasker") / "archive" / dirname / "README.md").exists()
+    assert (tasks_archive_root / dirname).is_dir()
+    assert (tasks_archive_root / dirname / "README.md").exists()
 
 
 # --- task must be closed ---
@@ -101,16 +105,20 @@ def test_archive_force_cancels_subtasks(story_id: str) -> None:
     assert t02 in result.output
 
 
-def test_archive_force_moves_file(story_id: str) -> None:
+def test_archive_force_moves_file(
+    tasks_root: Path, tasks_archive_root: Path, story_id: str
+) -> None:
     add_subtask(story_id, "Subtask")
-    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
+    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
     filename = task_file.name
     assert_invoke(app, ["archive", "--force", story_id])
     assert not task_file.exists()
-    assert (Path("tasker") / "archive" / filename).exists()
+    assert (tasks_archive_root / filename).exists()
 
 
-def test_archive_force_preserves_done_subtasks(story_id: str) -> None:
+def test_archive_force_preserves_done_subtasks(
+    tasks_archive_root: Path, story_id: str
+) -> None:
     t01 = add_subtask(story_id, "Done task").task_id
     add_subtask(story_id, "Open task")
     assert_invoke(app, ["done", t01])
@@ -118,7 +126,7 @@ def test_archive_force_preserves_done_subtasks(story_id: str) -> None:
     # only open task was forcibly cancelled
     assert t01 not in result.output
 
-    archived_file = next((Path("tasker") / "archive").glob(f"{story_id}-*.md"))
+    archived_file = next((tasks_archive_root).glob(f"{story_id}-*.md"))
     parsed = parse_task_file(archived_file)
     assert parsed.subtasks[0].status == TaskStatus.DONE
     assert parsed.subtasks[1].status == TaskStatus.CANCELLED
@@ -164,7 +172,7 @@ def test_archive_nonexistent_task_fails() -> None:
 # --- new task ID must not collide with archived IDs ---
 
 
-def test_new_task_skips_archived_ids(story_id: str) -> None:
+def test_new_task_skips_archived_ids(tasks_root: Path, story_id: str) -> None:
     assert_invoke(app, ["done", "--force", story_id])
     assert_invoke(app, ["archive", story_id])
 
@@ -176,50 +184,52 @@ def test_new_task_skips_archived_ids(story_id: str) -> None:
 # --- actions on archived task report that it is archived ---
 
 
-def _archive_story(story_id: str) -> None:
+def _archive_story(tasker_root: Path, story_id: str) -> None:
     assert_invoke(app, ["done", "--force", story_id])
     assert_invoke(app, ["archive", story_id])
 
 
-def test_start_archived_task_reports_archived(story_id: str) -> None:
-    _archive_story(story_id)
+def test_start_archived_task_reports_archived(tasks_root: Path, story_id: str) -> None:
+    _archive_story(tasks_root, story_id)
     result = assert_invoke(app, ["start", story_id], expect_error=True)
     assert "archived" in result.output.lower()
     assert "unarchive" in result.output.lower()
 
 
-def test_done_archived_task_reports_archived(story_id: str) -> None:
-    _archive_story(story_id)
+def test_done_archived_task_reports_archived(tasks_root: Path, story_id: str) -> None:
+    _archive_story(tasks_root, story_id)
     result = assert_invoke(app, ["done", story_id], expect_error=True)
     assert "archived" in result.output.lower()
 
 
-def test_cancel_archived_task_reports_archived(story_id: str) -> None:
-    _archive_story(story_id)
+def test_cancel_archived_task_reports_archived(tasks_root: Path, story_id: str) -> None:
+    _archive_story(tasks_root, story_id)
     result = assert_invoke(app, ["cancel", story_id], expect_error=True)
     assert "archived" in result.output.lower()
 
 
-def test_reset_archived_task_reports_archived(story_id: str) -> None:
-    _archive_story(story_id)
+def test_reset_archived_task_reports_archived(tasks_root: Path, story_id: str) -> None:
+    _archive_story(tasks_root, story_id)
     result = assert_invoke(app, ["reset", story_id], expect_error=True)
     assert "archived" in result.output.lower()
 
 
-def test_add_to_archived_task_reports_archived(story_id: str) -> None:
-    _archive_story(story_id)
+def test_add_to_archived_task_reports_archived(tasks_root: Path, story_id: str) -> None:
+    _archive_story(tasks_root, story_id)
     result = assert_invoke(app, ["add", story_id, "New subtask"], expect_error=True)
     assert "archived" in result.output.lower()
 
 
-def test_archive_already_archived_task_reports_archived(story_id: str) -> None:
-    _archive_story(story_id)
+def test_archive_already_archived_task_reports_archived(
+    tasks_root: Path, story_id: str
+) -> None:
+    _archive_story(tasks_root, story_id)
     result = assert_invoke(app, ["archive", story_id], expect_error=True)
     assert "archived" in result.output.lower()
 
 
-def test_json_archived_task_reports_archived(story_id: str) -> None:
-    _archive_story(story_id)
+def test_json_archived_task_reports_archived(tasks_root: Path, story_id: str) -> None:
+    _archive_story(tasks_root, story_id)
     result = assert_invoke(app, ["--json-output", "start", story_id], expect_error=True)
     data = json.loads(result.output)
     assert "error" in data
@@ -229,17 +239,17 @@ def test_json_archived_task_reports_archived(story_id: str) -> None:
 # --- unarchive command ---
 
 
-def test_unarchive_restores_basic_file(story_id: str) -> None:
-    _archive_story(story_id)
+def test_unarchive_restores_basic_file(tasks_root: Path, story_id: str) -> None:
+    _archive_story(tasks_root, story_id)
     task_file = next(Path("tasker/archive").glob(f"{story_id}-*.md"))
     filename = task_file.name
     result = assert_invoke(app, ["unarchive", story_id])
     assert "unarchived" in result.output
     assert not task_file.exists()
-    assert (Path("tasker") / filename).exists()
+    assert (tasks_root / filename).exists()
 
 
-def test_unarchive_restores_extended_dir(story_id: str) -> None:
+def test_unarchive_restores_extended_dir(tasks_root: Path, story_id: str) -> None:
     add_subtask(story_id, "Subtask", details="Some details")
     assert_invoke(app, ["done", "--force", story_id])
     assert_invoke(app, ["archive", story_id])
@@ -248,12 +258,12 @@ def test_unarchive_restores_extended_dir(story_id: str) -> None:
     result = assert_invoke(app, ["unarchive", story_id])
     assert "unarchived" in result.output
     assert not archived_dir.exists()
-    assert (Path("tasker") / dirname).is_dir()
-    assert (Path("tasker") / dirname / "README.md").exists()
+    assert (tasks_root / dirname).is_dir()
+    assert (tasks_root / dirname / "README.md").exists()
 
 
-def test_unarchive_allows_actions_on_task(story_id: str) -> None:
-    _archive_story(story_id)
+def test_unarchive_allows_actions_on_task(tasks_root: Path, story_id: str) -> None:
+    _archive_story(tasks_root, story_id)
     assert_invoke(app, ["unarchive", story_id])
     # should be able to reset and start the task again
     result = assert_invoke(app, ["reset", story_id])
@@ -265,20 +275,20 @@ def test_unarchive_nonexistent_task_fails() -> None:
     assert "not found" in result.output.lower()
 
 
-def test_unarchive_active_task_fails(story_id: str) -> None:
+def test_unarchive_active_task_fails(tasks_root: Path, story_id: str) -> None:
     result = assert_invoke(app, ["unarchive", story_id], expect_error=True)
     assert "not found" in result.output.lower()
 
 
-def test_unarchive_subtask_fails(story_id: str) -> None:
+def test_unarchive_subtask_fails(tasks_root: Path, story_id: str) -> None:
     t01 = add_subtask(story_id, "Subtask").task_id
-    _archive_story(story_id)
+    _archive_story(tasks_root, story_id)
     result = assert_invoke(app, ["unarchive", t01], expect_error=True)
     assert "root" in result.output.lower()
 
 
-def test_json_unarchive_outputs_task_ref(story_id: str) -> None:
-    _archive_story(story_id)
+def test_json_unarchive_outputs_task_ref(tasks_root: Path, story_id: str) -> None:
+    _archive_story(tasks_root, story_id)
     result = assert_invoke(app, ["--json-output", "unarchive", story_id])
     data = json.loads(result.output)
     assert "task_ref" in data
