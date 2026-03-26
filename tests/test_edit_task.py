@@ -6,6 +6,7 @@ import pytest
 from tasker.cli import app
 from tasker.parse import parse_task_file
 
+from .conftest import GetTaskFile
 from .helpers import add_subtask, assert_invoke, create_task
 
 # ---------------------------------------------------------------------------
@@ -43,19 +44,21 @@ def test_edit_details_capitalizes_first_letter(s1: str, tasks_root: Path) -> Non
     assert parsed.task.description == "New description"
 
 
-def test_edit_details_on_root_task(s1: str, tasks_root: Path) -> None:
+def test_edit_details_on_root_task(s1: str, get_task_file: GetTaskFile) -> None:
     assert_invoke(app, ["edit", s1, "--details", "Root description"])
 
-    task_file = next(tasks_root.glob(f"{s1}-*.md"))
+    task_file = get_task_file(s1)
     parsed = parse_task_file(task_file)
     assert parsed.task.description == "Root description"
 
 
-def test_edit_details_upgrades_inline_task(s1: str, tasks_root: Path) -> None:
+def test_edit_details_upgrades_inline_task(
+    s1: str, tasks_root: Path, get_task_file: GetTaskFile
+) -> None:
     t01 = add_subtask(s1, "Inline task").task_id
 
     # before: parent is a basic .md file (no directory)
-    old_file = next(tasks_root.glob(f"{s1}-*.md"))
+    old_file = get_task_file(s1)
     assert old_file.is_file()
 
     assert_invoke(app, ["edit", t01, "--details", "Now has details"])
@@ -86,11 +89,11 @@ def test_edit_title(s1: str, tasks_root: Path) -> None:
     assert parsed.task.title == "New title"  # auto-capitalized
 
 
-def test_edit_title_on_inline_task(s1: str, tasks_root: Path) -> None:
+def test_edit_title_on_inline_task(s1: str, get_task_file: GetTaskFile) -> None:
     t01 = add_subtask(s1, "Old title").task_id
     assert_invoke(app, ["edit", t01, "--title", "updated title"])
 
-    task_file = next(tasks_root.glob(f"{s1}-*.md"))
+    task_file = get_task_file(s1)
     content = task_file.read_text()
     assert "Updated title" in content
 
@@ -130,11 +133,13 @@ def test_edit_slug_removes_old_file(s1: str, tasks_root: Path) -> None:
     assert not old_path.exists()
 
 
-def test_edit_slug_upgrades_inline_task_and_parent(s1: str, tasks_root: Path) -> None:
+def test_edit_slug_upgrades_inline_task_and_parent(
+    s1: str, tasks_root: Path, get_task_file: GetTaskFile
+) -> None:
     t01 = add_subtask(s1, "Inline task").task_id
 
     # before: parent is a basic .md file
-    old_file = next(tasks_root.glob(f"{s1}-*.md"))
+    old_file = get_task_file(s1)
     assert old_file.is_file()
 
     assert_invoke(app, ["edit", t01, "--slug", "custom-slug"])

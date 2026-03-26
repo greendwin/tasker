@@ -36,13 +36,14 @@ def tasks_archive_root(tasks_root: Path) -> Path:
 
 
 class GetTaskFile(Protocol):
-    def __call__(self, task_ref: str) -> Path: ...
+    def __call__(self, task_id: str) -> Path: ...
 
 
+@pytest.fixture
 def get_task_file(tasks_root: Path) -> GetTaskFile:
-    def callback(task_ref: str) -> Path:
-        path = next(tasks_root.glob(f"{task_ref}.md"), None)
-        assert path is not None, f"file {tasks_root}/{task_ref}.md does not exist"
+    def callback(task_id: str) -> Path:
+        path = next(tasks_root.glob(f"{task_id}-*.md"), None)
+        assert path is not None, f"No task file found for {task_id!r} in {tasks_root}"
         return path
 
     return callback

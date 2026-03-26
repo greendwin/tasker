@@ -6,6 +6,7 @@ import pytest
 from tasker.cli import app
 from tasker.parse import parse_task_file
 
+from .conftest import GetTaskFile
 from .helpers import add_subtask, assert_invoke, create_task
 
 # ---------------------------------------------------------------------------
@@ -178,9 +179,9 @@ def test_new_file_created_after_move(s1: str, s2: str, tasks_root: Path) -> None
 
 
 def test_old_root_file_removed_when_moved_under_parent(
-    s1: str, s2: str, tasks_root: Path
+    s1: str, s2: str, get_task_file: GetTaskFile
 ) -> None:
-    old_file = next(tasks_root.glob(f"{s1}-*.md"))
+    old_file = get_task_file(s1)
     assert old_file.exists()
 
     assert_invoke(app, ["move", s1, "--parent", s2])
@@ -202,13 +203,15 @@ def test_move_to_root_creates_root_file(s1: str, tasks_root: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_old_parent_subtask_list_updated(s1: str, s2: str, tasks_root: Path) -> None:
+def test_old_parent_subtask_list_updated(
+    s1: str, s2: str, get_task_file: GetTaskFile
+) -> None:
     t01 = add_subtask(s1, "Mover").task_id
     add_subtask(s1, "Stayer")
     assert_invoke(app, ["move", t01, "--parent", s2])
 
     # old parent should only have "Stayer"
-    story_file = next(tasks_root.glob(f"{s1}-*.md"))
+    story_file = get_task_file(s1)
     content = story_file.read_text()
     assert "Mover" not in content
     assert "Stayer" in content

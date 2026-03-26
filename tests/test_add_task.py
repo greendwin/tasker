@@ -6,6 +6,7 @@ from tasker.base_types import TaskStatus
 from tasker.cli import app
 from tasker.parse import parse_task_file
 
+from .conftest import GetTaskFile
 from .helpers import add_subtask, assert_invoke, create_task
 
 
@@ -19,18 +20,22 @@ def test_add_inline_subtask_output(parent_id: str) -> None:
     assert f"{parent_id}t01" in result.output
 
 
-def test_add_subtask_file_contains_entry(tasks_root: Path, parent_id: str) -> None:
+def test_add_subtask_file_contains_entry(
+    parent_id: str, get_task_file: GetTaskFile
+) -> None:
     assert_invoke(app, ["add", parent_id, "Define task forms"])
-    task_file = next(tasks_root.glob(f"{parent_id}-*.md"))
+    task_file = get_task_file(parent_id)
     content = task_file.read_text()
     assert f"- [ ] {parent_id}t01: Define task forms" in content
 
 
-def test_add_multiple_subtasks_increments_id(tasks_root: Path, parent_id: str) -> None:
+def test_add_multiple_subtasks_increments_id(
+    parent_id: str, get_task_file: GetTaskFile
+) -> None:
     assert_invoke(app, ["add", parent_id, "First subtask"])
     result = assert_invoke(app, ["add", parent_id, "Second subtask"])
     assert f"{parent_id}t02" in result.output
-    task_file = next(tasks_root.glob(f"{parent_id}-*.md"))
+    task_file = get_task_file(parent_id)
     content = task_file.read_text()
     assert f"- [ ] {parent_id}t01: First subtask" in content
     assert f"- [ ] {parent_id}t02: Second subtask" in content
@@ -41,25 +46,29 @@ def test_add_subtask_parent_not_found() -> None:
 
 
 def test_add_subtask_strips_slug_from_parent_id(
-    tasks_root: Path, parent_id: str
+    parent_id: str, get_task_file: GetTaskFile
 ) -> None:
-    task_file = next(tasks_root.glob(f"{parent_id}-*.md"))
+    task_file = get_task_file(parent_id)
     slug_ref = task_file.stem  # e.g. "s01-my-story"
     result = assert_invoke(app, ["add", slug_ref, "Define task forms"])
     assert f"{parent_id}t01" in result.output
 
 
-def test_add_subtask_title_is_capitalized(tasks_root: Path, parent_id: str) -> None:
+def test_add_subtask_title_is_capitalized(
+    parent_id: str, get_task_file: GetTaskFile
+) -> None:
     assert_invoke(app, ["add", parent_id, "define task forms"])
-    task_file = next(tasks_root.glob(f"{parent_id}-*.md"))
+    task_file = get_task_file(parent_id)
     content = task_file.read_text()
     assert f"- [ ] {parent_id}t01: Define task forms" in content
 
 
-def test_add_subtask_parse_roundtrip(tasks_root: Path, parent_id: str) -> None:
+def test_add_subtask_parse_roundtrip(
+    parent_id: str, get_task_file: GetTaskFile
+) -> None:
     assert_invoke(app, ["add", parent_id, "First subtask"])
     assert_invoke(app, ["add", parent_id, "Second subtask"])
-    task_file = next(tasks_root.glob(f"{parent_id}-*.md"))
+    task_file = get_task_file(parent_id)
     result = parse_task_file(task_file)
     assert len(result.subtasks) == 2
     assert result.subtasks[0].id == f"{parent_id}t01"
@@ -73,37 +82,37 @@ def test_add_subtask_parse_roundtrip(tasks_root: Path, parent_id: str) -> None:
 
 
 def test_add_subtask_to_done_parent_reopens_it(
-    tasks_root: Path, parent_id: str
+    parent_id: str, get_task_file: GetTaskFile
 ) -> None:
     t01 = add_subtask(parent_id, "First subtask").task_id
     assert_invoke(app, ["done", t01])
     # parent is now done; adding a new subtask should reopen it
     assert_invoke(app, ["add", parent_id, "Second subtask"])
-    task_file = next(tasks_root.glob(f"{parent_id}-*.md"))
+    task_file = get_task_file(parent_id)
     r = parse_task_file(task_file)
     assert r.task.status == TaskStatus.PENDING
 
 
 def test_add_subtask_to_cancelled_parent_reopens_it(
-    tasks_root: Path, parent_id: str
+    parent_id: str, get_task_file: GetTaskFile
 ) -> None:
     t01 = add_subtask(parent_id, "First subtask").task_id
     assert_invoke(app, ["cancel", t01])
     # parent is now cancelled; adding a new subtask should reopen it
     assert_invoke(app, ["add", parent_id, "Second subtask"])
-    task_file = next(tasks_root.glob(f"{parent_id}-*.md"))
+    task_file = get_task_file(parent_id)
     task = parse_task_file(task_file).task
     assert task.status == TaskStatus.PENDING
 
 
 def test_add_subtask_to_in_progress_parent_keeps_status(
-    tasks_root: Path, parent_id: str
+    parent_id: str, get_task_file: GetTaskFile
 ) -> None:
     t01 = add_subtask(parent_id, "First subtask").task_id
     assert_invoke(app, ["start", t01])
     # parent is in-progress; adding another subtask keeps it in-progress
     assert_invoke(app, ["add", parent_id, "Second subtask"])
-    task_file = next(tasks_root.glob(f"{parent_id}-*.md"))
+    task_file = get_task_file(parent_id)
     task = parse_task_file(task_file).task
     assert task.status == TaskStatus.IN_PROGRESS
 
@@ -136,9 +145,9 @@ def test_add_detailed_subtask_creates_child_file(
 
 
 def test_add_detailed_subtask_removes_old_parent_file(
-    tasks_root: Path, parent_id: str
+    parent_id: str, get_task_file: GetTaskFile
 ) -> None:
-    old_file = next(tasks_root.glob(f"{parent_id}-*.md"))
+    old_file = get_task_file(parent_id)
     assert old_file.exists()
     assert_invoke(
         app, ["add", parent_id, "Write CLI spec", "--details", "Cover all commands"]
@@ -146,7 +155,7 @@ def test_add_detailed_subtask_removes_old_parent_file(
     assert not old_file.exists()
 
 
-def test_add_detailed_subtask_output(tasks_root: Path, parent_id: str) -> None:
+def test_add_detailed_subtask_output(parent_id: str) -> None:
     result = assert_invoke(
         app, ["add", parent_id, "Write CLI spec", "--details", "Cover all commands"]
     )

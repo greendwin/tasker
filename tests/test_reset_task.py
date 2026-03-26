@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 import pytest
 
@@ -7,6 +6,7 @@ from tasker.base_types import TaskStatus
 from tasker.cli import app
 from tasker.parse import parse_task_file
 
+from .conftest import GetTaskFile
 from .helpers import add_subtask, assert_invoke, create_task
 
 
@@ -23,21 +23,23 @@ def test_reset_in_progress_leaf_task_succeeds(story_id: str) -> None:
 
 
 def test_reset_leaf_task_updates_status_on_disk(
-    story_id: str, tasks_root: Path
+    story_id: str, get_task_file: GetTaskFile
 ) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["start", task_id])
     assert_invoke(app, ["reset", task_id])
-    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     content = task_file.read_text()
     assert f"- [ ] {task_id}: Leaf task" in content
 
 
-def test_reset_leaf_task_parses_as_pending(story_id: str, tasks_root: Path) -> None:
+def test_reset_leaf_task_parses_as_pending(
+    story_id: str, get_task_file: GetTaskFile
+) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["start", task_id])
     assert_invoke(app, ["reset", task_id])
-    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     result = parse_task_file(task_file)
     assert result.subtasks[0].status == TaskStatus.PENDING
 
@@ -48,37 +50,39 @@ def test_reset_already_pending_succeeds(story_id: str) -> None:
     assert "already pending" in result.output
 
 
-def test_reset_done_task(story_id: str, tasks_root: Path) -> None:
+def test_reset_done_task(story_id: str, get_task_file: GetTaskFile) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["done", task_id])
     assert_invoke(app, ["reset", task_id])
-    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     result = parse_task_file(task_file)
     assert result.subtasks[0].status == TaskStatus.PENDING
 
 
-def test_reset_cancelled_task(story_id: str, tasks_root: Path) -> None:
+def test_reset_cancelled_task(story_id: str, get_task_file: GetTaskFile) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["cancel", task_id])
     assert_invoke(app, ["reset", task_id])
-    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     result = parse_task_file(task_file)
     assert result.subtasks[0].status == TaskStatus.PENDING
 
 
 def test_reset_cancelled_task_removes_strikethrough(
-    story_id: str, tasks_root: Path
+    story_id: str, get_task_file: GetTaskFile
 ) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["cancel", task_id])
     assert_invoke(app, ["reset", task_id])
-    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     content = task_file.read_text()
     assert f"- [ ] {task_id}: Leaf task" in content
     assert "~~" not in content
 
 
-def test_reset_subtask_updates_parent_status(story_id: str, tasks_root: Path) -> None:
+def test_reset_subtask_updates_parent_status(
+    story_id: str, get_task_file: GetTaskFile
+) -> None:
     t01 = add_subtask(story_id, "Task one").task_id
     t02 = add_subtask(story_id, "Task two").task_id
     assert_invoke(app, ["start", t01])
@@ -86,20 +90,21 @@ def test_reset_subtask_updates_parent_status(story_id: str, tasks_root: Path) ->
     # reset both — parent should go back to pending
     assert_invoke(app, ["reset", t01])
     assert_invoke(app, ["reset", t02])
-    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     task = parse_task_file(task_file).task
     assert task.status == TaskStatus.PENDING
 
 
 def test_reset_one_subtask_parent_stays_in_progress(
-    story_id: str, tasks_root: Path
+    story_id: str,
+    get_task_file: GetTaskFile,
 ) -> None:
     t01 = add_subtask(story_id, "Task one").task_id
     t02 = add_subtask(story_id, "Task two").task_id
     assert_invoke(app, ["start", t01])
     assert_invoke(app, ["start", t02])
     assert_invoke(app, ["reset", t01])
-    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     task = parse_task_file(task_file).task
     assert task.status == TaskStatus.IN_PROGRESS
 
@@ -151,7 +156,7 @@ def test_json_reset_already_pending(story_id: str) -> None:
 
 
 def test_reset_idempotent_flushes_corrected_statuses(
-    story_id: str, tasks_root: Path
+    story_id: str, get_task_file: GetTaskFile
 ) -> None:
     """Manual edit: mark subtask pending, but parent still in-progress on disk.
 
@@ -159,7 +164,7 @@ def test_reset_idempotent_flushes_corrected_statuses(
     the corrected parent status must still be flushed to disk.
     """
     task_id = add_subtask(story_id, "Task one").task_id
-    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
 
     # simulate manual edit: mark subtask in-progress but leave parent pending
     content = task_file.read_text()

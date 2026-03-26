@@ -11,6 +11,7 @@ from tasker.repo import (
     get_next_subtask_id,
 )
 
+from .conftest import GetTaskFile
 from .helpers import add_subtask, create_task
 
 
@@ -54,9 +55,11 @@ def test_next_child_id_story_with_subtasks(tasks_root: Path) -> None:
     assert get_next_subtask_id(task) == f"{story_id}t03"
 
 
-def test_next_child_id_accepts_slug_ref(tasks_root: Path) -> None:
+def test_next_child_id_accepts_slug_ref(
+    tasks_root: Path, get_task_file: GetTaskFile
+) -> None:
     story_id = create_task("My story").task_id
-    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     slug_ref = task_file.stem  # e.g. "s01-my-story"
     repo = make_repo(tasks_root)
     task = repo.resolve_ref(slug_ref)
@@ -84,10 +87,12 @@ def test_next_child_id_unknown_ref_raises(tasks_root: Path) -> None:
 # --- load_root_task ---
 
 
-def test_load_story_raises_on_duplicate_id(tasks_root: Path) -> None:
+def test_load_story_raises_on_duplicate_id(
+    tasks_root: Path, get_task_file: GetTaskFile
+) -> None:
     story_id = create_task("My story").task_id
     # create a second file with the same story ID but a different slug
-    original = next(tasks_root.glob(f"{story_id}-*.md"))
+    original = get_task_file(story_id)
     duplicate = original.parent / f"{story_id}-other-slug.md"
     duplicate.write_text(original.read_text())
     repo = make_repo(tasks_root)
@@ -135,13 +140,15 @@ def test_create_story_returns_filename(tasks_root: Path) -> None:
     assert task.ref == "s01-my-story"
 
 
-def test_create_story_capitalizes_title(tasks_root: Path) -> None:
+def test_create_story_capitalizes_title(
+    tasks_root: Path, get_task_file: GetTaskFile
+) -> None:
     repo = make_repo(tasks_root)
     repo.create_root_task(
         title="lowercase title", description=None, slug=None, extended=False
     )
     repo.flush_to_disk()
-    content = next(tasks_root.glob("s01-*.md")).read_text()
+    content = get_task_file("s01").read_text()
     assert "Lowercase title" in content
 
 
@@ -196,9 +203,11 @@ def test_repo_add_subtask(tasks_root: Path) -> None:
     assert child.id == f"{story_id}t01"
 
 
-def test_repo_add_subtask_no_disk_write_before_flush(tasks_root: Path) -> None:
+def test_repo_add_subtask_no_disk_write_before_flush(
+    tasks_root: Path, get_task_file: GetTaskFile
+) -> None:
     story_id = create_task("My story").task_id
-    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     content_before = task_file.read_text()
     repo = make_repo(tasks_root)
     parent = repo.resolve_ref(story_id)
@@ -206,13 +215,15 @@ def test_repo_add_subtask_no_disk_write_before_flush(tasks_root: Path) -> None:
     assert task_file.read_text() == content_before
 
 
-def test_repo_add_subtask_writes_after_flush(tasks_root: Path) -> None:
+def test_repo_add_subtask_writes_after_flush(
+    tasks_root: Path, get_task_file: GetTaskFile
+) -> None:
     story_id = create_task("My story").task_id
     repo = make_repo(tasks_root)
     parent = repo.resolve_ref(story_id)
     child = repo.add_subtask(parent, title="New subtask")
     repo.flush_to_disk()
-    content = next(tasks_root.glob(f"{story_id}-*.md")).read_text()
+    content = get_task_file(story_id).read_text()
     assert child.id in content
 
 
@@ -233,9 +244,11 @@ def test_repo_add_subtask_upgrades_inline_parent(tasks_root: Path) -> None:
 # --- flush_tasks_to_disk ---
 
 
-def test_flush_does_not_rewrite_unmodified_story(tasks_root: Path) -> None:
+def test_flush_does_not_rewrite_unmodified_story(
+    tasks_root: Path, get_task_file: GetTaskFile
+) -> None:
     story_id = create_task("My story").task_id
-    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     mtime_before = task_file.stat().st_mtime_ns
     repo = make_repo(tasks_root)
     repo.resolve_ref(story_id)  # load without modifying
@@ -243,9 +256,11 @@ def test_flush_does_not_rewrite_unmodified_story(tasks_root: Path) -> None:
     assert task_file.stat().st_mtime_ns == mtime_before
 
 
-def test_flush_rewrites_modified_story(tasks_root: Path) -> None:
+def test_flush_rewrites_modified_story(
+    tasks_root: Path, get_task_file: GetTaskFile
+) -> None:
     story_id = create_task("My story").task_id
-    task_file = next(tasks_root.glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     mtime_before = task_file.stat().st_mtime_ns
     repo = make_repo(tasks_root)
     parent = repo.resolve_ref(story_id)
@@ -254,11 +269,13 @@ def test_flush_rewrites_modified_story(tasks_root: Path) -> None:
     assert task_file.stat().st_mtime_ns != mtime_before
 
 
-def test_flush_twice_does_not_rewrite_unchanged(tasks_root: Path) -> None:
+def test_flush_twice_does_not_rewrite_unchanged(
+    tasks_root: Path, get_task_file: GetTaskFile
+) -> None:
     repo = make_repo(tasks_root)
     repo.create_root_task(title="My story", description=None, slug=None, extended=False)
     repo.flush_to_disk()
-    task_file = next(tasks_root.glob("s01-*.md"))
+    task_file = get_task_file("s01")
     mtime_after_first_flush = task_file.stat().st_mtime_ns
     repo.flush_to_disk()
     assert task_file.stat().st_mtime_ns == mtime_after_first_flush
