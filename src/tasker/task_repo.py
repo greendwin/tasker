@@ -1,7 +1,8 @@
-import dataclasses
 import re
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
+from typing import NamedTuple
 
 from tasker.base_types import Task, TaskStatus, is_root_task_id
 from tasker.exceptions import TaskArchivedError, TaskHasSubtasksError, TaskValidateError
@@ -11,7 +12,12 @@ from tasker.render import build_task_file_path, render_task, write_task_file
 _ARCHIVE_DIR = "archive"
 
 
-@dataclasses.dataclass
+class TaskRename(NamedTuple):
+    old_id: str
+    new_id: str
+
+
+@dataclass
 class _DiskState:
     content: str
     extended: bool
@@ -204,6 +210,128 @@ class TaskRepo:
 
         return src.name
 
+    def move_task(
+        self,
+        task: Task,
+        *,
+        new_parent: Task | None,
+    ) -> list[TaskRename]:
+        if new_parent is None:
+            if is_root_task_id(task.id):
+                # already a root task
+                return []
+        else:
+            if new_parent.id == task.id:
+                raise TaskValidateError(
+                    f"Cannot move {task.id!r} under itself.",
+                    task_ref=task.id,
+                )
+
+            ref = parse_task_ref(task.id)
+            if ref.parent_id == new_parent.id:
+                # already under target parent
+                return []
+
+            if _is_descendant_of(new_parent.id, task.id):
+                raise TaskValidateError(
+                    f"Cannot move {task.id!r} under its descendant"
+                    f" {new_parent.id!r}.",
+                    task_ref=task.id,
+                )
+
+        # --- collect old file paths before any mutation ---
+        old_paths = self._collect_task_paths(task)
+
+        # --- detach from current parent ---
+        self._detach_task(task)
+
+        # --- compute new ID and re-ID subtree ---
+        new_id = self._next_child_id(new_parent)
+        renames = self._reassign_ids(task, new_id)
+
+        # ensure task is file-backed (root tasks and subtasks under a parent
+        # that will be flushed both need a slug)
+        if task.slug is None:
+            task.slug = generate_slug(task.title)
+
+        # --- attach to new location ---
+        if new_parent is None:
+            self._root_tasks[task.id] = task
+        else:
+            if new_parent.is_inline:
+                new_parent.slug = generate_slug(new_parent.title)
+            new_parent.subtasks.append(task)
+            self._update_parents_status(task)
+
+        # --- persist ---
+        self.flush_to_disk()
+
+        # --- remove old files ---
+        for path in old_paths:
+            if path.is_dir():
+                shutil.rmtree(path)
+            elif path.is_file():
+                path.unlink()
+
+        return renames
+
+    def _collect_task_paths(self, task: Task) -> list[Path]:
+        if task.is_inline:
+            return []
+        container = self._get_container_path(task.id)
+        if task.extended:
+            return [container / task.ref]
+        return [container / f"{task.ref}.md"]
+
+    def _get_container_path(self, task_id: str) -> Path:
+        if is_root_task_id(task_id):
+            return self.root
+        ref = parse_task_ref(task_id)
+        parent = self._tasks[ref.parent_id]
+        return self._get_container_path(ref.parent_id) / parent.ref
+
+    def _detach_task(self, task: Task) -> None:
+        if is_root_task_id(task.id):
+            del self._root_tasks[task.id]
+            return
+
+        ref = parse_task_ref(task.id)
+        parent = self._tasks[ref.parent_id]
+        parent.subtasks = [s for s in parent.subtasks if s.id != task.id]
+
+        # refresh old parent + ancestors
+        parent.status = _get_status_from_subtasks(parent)
+        parent.extended = parent.extended or _has_file_subtasks(parent)
+        cur_id = parent.id
+        while not is_root_task_id(cur_id):
+            ri = parse_task_ref(cur_id)
+            ancestor = self._tasks[ri.parent_id]
+            ancestor.status = _get_status_from_subtasks(ancestor)
+            ancestor.extended = ancestor.extended or _has_file_subtasks(ancestor)
+            cur_id = ancestor.id
+
+    def _reassign_ids(self, task: Task, new_id: str) -> list[TaskRename]:
+        renames: list[TaskRename] = []
+
+        old_child_prefix = task.id if "t" in task.id else task.id + "t"
+        new_child_prefix = new_id if "t" in new_id else new_id + "t"
+
+        old_id = task.id
+        self._tasks.pop(old_id, None)
+        self._disk_state.pop(old_id, None)
+
+        task.id = new_id
+        self._tasks[new_id] = task
+        renames.append(TaskRename(old_id=old_id, new_id=new_id))
+
+        for subtask in task.subtasks:
+            old_child_id = subtask.id
+            suffix = old_child_id[len(old_child_prefix) :]
+            new_child_id = new_child_prefix + suffix
+            renames.extend(self._reassign_ids(subtask, new_child_id))
+
+        return renames
+
     def _close_recursive(
         self,
         task: Task,
@@ -373,6 +501,12 @@ def get_next_subtask_id(parent: Task) -> str:
         if t.id.startswith(child_prefix) and len(t.id) == len(child_prefix) + 2
     ]
     return f"{child_prefix}{max(existing_nums, default=0) + 1:02d}"
+
+
+def _is_descendant_of(child_id: str, ancestor_id: str) -> bool:
+    """True when *child_id* is a strict descendant of *ancestor_id*."""
+    prefix = ancestor_id if "t" in ancestor_id else ancestor_id + "t"
+    return child_id.startswith(prefix) and len(child_id) > len(ancestor_id)
 
 
 def _is_leaf_task(task: Task) -> bool:
