@@ -264,3 +264,86 @@ def test_parse_allows_blank_lines_in_subtasks() -> None:
     )
     _, subtasks = parse_task(content, task_id="s01", slug="my-task", extended=False)
     assert len(subtasks) == 2
+
+
+# --- extra sections (non-managed) ---
+
+
+def test_parse_preserves_depends_section() -> None:
+    content = (
+        "---\nid: s01\nstatus: pending\n---\n\n"
+        "# My task\n\n"
+        "## Depends\n\n"
+        "- s02 - needs API design\n"
+    )
+    task, _ = parse_task(content, task_id="s01", slug="my-task", extended=False)
+    assert task.extra_sections is not None
+    assert "## Depends" in task.extra_sections
+    assert "s02 - needs API design" in task.extra_sections
+
+
+def test_parse_preserves_custom_section() -> None:
+    content = (
+        "---\nid: s01\nstatus: pending\n---\n\n"
+        "# My task\n\nDescription text.\n\n"
+        "## Notes\n\nSome notes here.\n"
+    )
+    task, _ = parse_task(content, task_id="s01", slug="my-task", extended=False)
+    assert task.description == "Description text."
+    assert task.extra_sections is not None
+    assert "## Notes" in task.extra_sections
+    assert "Some notes here." in task.extra_sections
+
+
+def test_parse_preserves_section_after_subtasks() -> None:
+    content = (
+        "---\nid: s01\nstatus: pending\n---\n\n"
+        "# My task\n\n"
+        "## Subtasks\n\n"
+        "- [ ] s01t01: First\n\n"
+        "## Notes\n\nPost-subtask notes.\n"
+    )
+    task, subtasks = parse_task(content, task_id="s01", slug="my-task", extended=False)
+    assert len(subtasks) == 1
+    assert task.extra_sections is not None
+    assert "Post-subtask notes." in task.extra_sections
+
+
+def test_parse_preserves_multiple_extra_sections() -> None:
+    content = (
+        "---\nid: s01\nstatus: pending\n---\n\n"
+        "# My task\n\n"
+        "## Depends\n\n- s02\n\n"
+        "## Notes\n\nSome notes.\n"
+    )
+    task, _ = parse_task(content, task_id="s01", slug="my-task", extended=False)
+    assert task.extra_sections is not None
+    assert "## Depends" in task.extra_sections
+    assert "## Notes" in task.extra_sections
+
+
+def test_extra_sections_roundtrip() -> None:
+    content = (
+        "---\nid: s01\nstatus: pending\n---\n\n"
+        "# My task\n\nDescription.\n\n"
+        "## Depends\n\n- s02 - needs API design\n\n"
+        "## Subtasks\n\n"
+        "- [ ] s01t01: First\n"
+    )
+    task, subtasks = parse_task(content, task_id="s01", slug="my-task", extended=False)
+    task.subtasks = [
+        Task(id=s.id, slug=s.slug, title=s.title, status=s.status) for s in subtasks
+    ]
+
+    rendered = render_task(task)
+    assert "## Depends" in rendered
+    assert "s02 - needs API design" in rendered
+    assert "## Subtasks" in rendered
+    assert "s01t01" in rendered
+    assert "Description." in rendered
+
+
+def test_no_extra_sections_when_absent() -> None:
+    content = "---\nid: s01\nstatus: pending\n---\n\n" "# My task\n\nDescription.\n"
+    task, _ = parse_task(content, task_id="s01", slug="my-task", extended=False)
+    assert task.extra_sections is None

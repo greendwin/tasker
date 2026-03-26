@@ -31,6 +31,7 @@ def render_task(task: Task) -> str:
         id=task.id,
         title=task.title,
         description=task.description,
+        extra_sections=task.extra_sections,
         status=task.status.value,
         subtasks=task.subtasks,
     )

@@ -23,6 +23,7 @@ class Task(BaseModel):
     slug: str | None = None
     extended: bool = False
     description: str | None = None
+    extra_sections: str | None = None
     subtasks: list[Task] = []
 
     @property

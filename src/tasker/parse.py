@@ -106,6 +106,7 @@ class _ParsedContent:
     id: str
     title: str
     description: str | None
+    extra_sections: str | None
     status: TaskStatus
     subtasks: list[ParsedSubtask]
 
@@ -127,6 +128,7 @@ def parse_task(
             extended=extended,
             title=parsed.title,
             description=parsed.description,
+            extra_sections=parsed.extra_sections,
             status=parsed.status,
         ),
         parsed.subtasks,
@@ -241,38 +243,63 @@ def _parse_content(content: str, *, task_ref: str) -> _ParsedContent:
 
     title = body[0][2:]
 
-    # Find ## Subtasks section in body[1:]
-    subtasks_idx: int | None = None
-    for i, line in enumerate(body[1:], 1):
-        if line == "## Subtasks":
-            subtasks_idx = i
-            break
+    # Split body after title into sections by ## headings
+    # Each section is (heading_or_none, lines)
+    sections: list[tuple[str | None, list[str]]] = []
+    current_heading: str | None = None
+    current_lines: list[str] = []
 
-    desc_end = subtasks_idx if subtasks_idx is not None else len(body)
-    desc_lines = body[1:desc_end]
-    while desc_lines and not desc_lines[0].strip():
-        desc_lines.pop(0)
-    while desc_lines and not desc_lines[-1].strip():
-        desc_lines.pop()
-    description = "\n".join(desc_lines) or None
+    for line in body[1:]:
+        if line.startswith("## "):
+            sections.append((current_heading, current_lines))
+            current_heading = line
+            current_lines = []
+        else:
+            current_lines.append(line)
+    sections.append((current_heading, current_lines))
 
+    # Extract description (text before any ## heading)
+    description: str | None = None
     subtasks: list[ParsedSubtask] = []
-    if subtasks_idx is not None:
-        for line in body[subtasks_idx + 1 :]:
-            if not line.strip():
-                continue
-            parsed_sub = _parse_subtask_line(line)
-            if parsed_sub is None:
-                raise TaskValidateError(
-                    f"Invalid subtask line in '## Subtasks': {line!r}",
-                    task_ref=task_ref,
-                )
-            subtasks.append(parsed_sub)
+    extra_parts: list[str] = []
+
+    for heading, sec_lines in sections:
+        if heading is None:
+            # text before any heading = description
+            desc_lines = _strip_blank_lines(sec_lines)
+            description = "\n".join(desc_lines) or None
+        elif heading == "## Subtasks":
+            for line in sec_lines:
+                if not line.strip():
+                    continue
+                parsed_sub = _parse_subtask_line(line)
+                if parsed_sub is None:
+                    raise TaskValidateError(
+                        f"Invalid subtask line in '## Subtasks': {line!r}",
+                        task_ref=task_ref,
+                    )
+                subtasks.append(parsed_sub)
+        else:
+            # preserve non-managed sections verbatim
+            sec_text = _strip_blank_lines([heading] + sec_lines)
+            extra_parts.append("\n".join(sec_text))
+
+    extra_sections = "\n\n".join(extra_parts) or None
 
     return _ParsedContent(
         id=id_val,
         title=title,
         description=description,
+        extra_sections=extra_sections,
         status=status,
         subtasks=subtasks,
     )
+
+
+def _strip_blank_lines(lines: list[str]) -> list[str]:
+    result = list(lines)
+    while result and not result[0].strip():
+        result.pop(0)
+    while result and not result[-1].strip():
+        result.pop()
+    return result
