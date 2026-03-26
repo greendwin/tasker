@@ -15,9 +15,9 @@ from .helpers import add_subtask, create_task
 
 
 def _tasker_root() -> Path:
-    planning = Path("planning")
-    planning.mkdir(exist_ok=True)
-    return planning
+    tasker_dir = Path("tasker")
+    tasker_dir.mkdir(exist_ok=True)
+    return tasker_dir
 
 
 @pytest.fixture
@@ -67,7 +67,7 @@ def test_next_child_id_story_with_subtasks() -> None:
 
 def test_next_child_id_accepts_slug_ref() -> None:
     story_id = create_task("My story").task_id
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
     slug_ref = task_file.stem  # e.g. "s01-my-story"
     repo = make_repo()
     task = repo.resolve_ref(slug_ref)
@@ -98,7 +98,7 @@ def test_next_child_id_unknown_ref_raises() -> None:
 def test_load_story_raises_on_duplicate_id() -> None:
     story_id = create_task("My story").task_id
     # create a second file with the same story ID but a different slug
-    original = next(Path("planning").glob(f"{story_id}-*.md"))
+    original = next(Path("tasker").glob(f"{story_id}-*.md"))
     duplicate = original.parent / f"{story_id}-other-slug.md"
     duplicate.write_text(original.read_text())
     repo = make_repo()
@@ -152,7 +152,7 @@ def test_create_story_capitalizes_title() -> None:
         title="lowercase title", description=None, slug=None, extended=False
     )
     repo.flush_to_disk()
-    content = next(Path("planning").glob("s01-*.md")).read_text()
+    content = next(Path("tasker").glob("s01-*.md")).read_text()
     assert "Lowercase title" in content
 
 
@@ -175,14 +175,14 @@ def test_create_story_explicit_slug() -> None:
 def test_create_story_no_disk_write_before_flush() -> None:
     repo = make_repo()
     repo.create_root_task(title="My story", description=None, slug=None, extended=False)
-    assert not list(Path("planning").glob("s01-*.md"))
+    assert not list(Path("tasker").glob("s01-*.md"))
 
 
 def test_create_story_writes_file_after_flush() -> None:
     repo = make_repo()
     repo.create_root_task(title="My story", description=None, slug=None, extended=False)
     repo.flush_to_disk()
-    assert list(Path("planning").glob("s01-*.md"))
+    assert list(Path("tasker").glob("s01-*.md"))
 
 
 def test_create_story_increments_id_for_second_story() -> None:
@@ -209,7 +209,7 @@ def test_repo_add_subtask() -> None:
 
 def test_repo_add_subtask_no_disk_write_before_flush() -> None:
     story_id = create_task("My story").task_id
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
     content_before = task_file.read_text()
     repo = make_repo()
     parent = repo.resolve_ref(story_id)
@@ -223,7 +223,7 @@ def test_repo_add_subtask_writes_after_flush() -> None:
     parent = repo.resolve_ref(story_id)
     child = repo.add_subtask(parent, title="New subtask")
     repo.flush_to_disk()
-    content = next(Path("planning").glob(f"{story_id}-*.md")).read_text()
+    content = next(Path("tasker").glob(f"{story_id}-*.md")).read_text()
     assert child.id in content
 
 
@@ -237,7 +237,7 @@ def test_repo_add_subtask_upgrades_inline_parent() -> None:
     assert child.title == "Nested subtask"
     repo.flush_to_disk()
     # parent should now be file-backed in parent's extended dir
-    story_dir = next(Path("planning").glob(f"{story_id}-*/"))
+    story_dir = next(Path("tasker").glob(f"{story_id}-*/"))
     assert (story_dir / f"{t01}-first-subtask.md").exists()
 
 
@@ -246,7 +246,7 @@ def test_repo_add_subtask_upgrades_inline_parent() -> None:
 
 def test_flush_does_not_rewrite_unmodified_story() -> None:
     story_id = create_task("My story").task_id
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
     mtime_before = task_file.stat().st_mtime_ns
     repo = make_repo()
     repo.resolve_ref(story_id)  # load without modifying
@@ -256,7 +256,7 @@ def test_flush_does_not_rewrite_unmodified_story() -> None:
 
 def test_flush_rewrites_modified_story() -> None:
     story_id = create_task("My story").task_id
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
     mtime_before = task_file.stat().st_mtime_ns
     repo = make_repo()
     parent = repo.resolve_ref(story_id)
@@ -269,7 +269,7 @@ def test_flush_twice_does_not_rewrite_unchanged() -> None:
     repo = make_repo()
     repo.create_root_task(title="My story", description=None, slug=None, extended=False)
     repo.flush_to_disk()
-    task_file = next(Path("planning").glob("s01-*.md"))
+    task_file = next(Path("tasker").glob("s01-*.md"))
     mtime_after_first_flush = task_file.stat().st_mtime_ns
     repo.flush_to_disk()
     assert task_file.stat().st_mtime_ns == mtime_after_first_flush
@@ -305,7 +305,7 @@ def test_flush_upgrades_basic_to_extended() -> None:
     )
     repo.flush_to_disk()
 
-    old_path = Path("planning") / f"{task.ref}.md"
+    old_path = Path("tasker") / f"{task.ref}.md"
     assert old_path.exists()
 
     # Simulate upgrade: set extended flag
@@ -315,7 +315,7 @@ def test_flush_upgrades_basic_to_extended() -> None:
     # Old .md file should be removed
     assert not old_path.exists()
     # New directory structure should exist
-    new_path = Path("planning") / task.ref / "README.md"
+    new_path = Path("tasker") / task.ref / "README.md"
     assert new_path.exists()
 
 
@@ -327,13 +327,13 @@ def test_flush_upgrade_preserves_content() -> None:
     )
     repo.flush_to_disk()
 
-    old_path = Path("planning") / f"{task.ref}.md"
+    old_path = Path("tasker") / f"{task.ref}.md"
     old_content = old_path.read_text()
 
     task.extended = True
     repo.flush_to_disk()
 
-    new_path = Path("planning") / task.ref / "README.md"
+    new_path = Path("tasker") / task.ref / "README.md"
     new_content = new_path.read_text()
     assert new_content == old_content
 

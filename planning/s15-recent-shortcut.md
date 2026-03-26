@@ -1,5 +1,5 @@
 ---
-id: s12t03
+id: s15
 status: pending
 ---
 
@@ -20,3 +20,10 @@ tasker add s12t02 "Other subtask 1"  # q := s12t02
 tasked add q "Other subtask 2"  # add to s12t02
 tasker start q01  # started s12t0201
 ```
+
+## Subtasks
+
+- [ ] s15t01: Need git-ignored config aka `tasker`
+- [ ] s15t02: Need 'init' command that setups 'planning' directory
+- [ ] s15t03: TBD: we can add tasker directory instead of planning, put .gitignore there so that last task can be stored there
+- [ ] s15t04: Rework 'planning' to 'tasker'

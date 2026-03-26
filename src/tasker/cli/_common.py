@@ -31,10 +31,9 @@ def common_options(
 
 
 def get_task_repo() -> TaskRepo:
-    # TODO: this should be `.tasker` or configured using it
-    planning = Path("planning")
-    planning.mkdir(exist_ok=True)
-    return TaskRepo(planning)
+    tasker_dir = Path("tasker")
+    tasker_dir.mkdir(exist_ok=True)
+    return TaskRepo(tasker_dir)
 
 
 def resolve_ref(repo: TaskRepo, task_ref: str) -> Task:

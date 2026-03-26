@@ -16,7 +16,7 @@ def parent_id() -> str:
 
 
 def _task_file(parent_id: str) -> Path:
-    return next(Path("planning").glob(f"{parent_id}-*.md"))
+    return next(Path("tasker").glob(f"{parent_id}-*.md"))
 
 
 # --- basic creation ---

@@ -24,7 +24,7 @@ def test_start_pending_leaf_task_succeeds(story_id: str) -> None:
 def test_start_leaf_task_updates_status_on_disk(story_id: str) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["start", task_id])
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
     content = task_file.read_text()
     assert f"- [~] {task_id}: Leaf task" in content
 
@@ -32,7 +32,7 @@ def test_start_leaf_task_updates_status_on_disk(story_id: str) -> None:
 def test_start_leaf_task_parses_as_in_progress(story_id: str) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["start", task_id])
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
     result = parse_task_file(task_file)
     assert result.subtasks[0].status == TaskStatus.IN_PROGRESS
 
@@ -57,7 +57,7 @@ def test_restart_done_task(story_id: str) -> None:
     # We simulate by calling start twice and checking the error
     task_id = add_subtask(story_id, "Leaf task").task_id
     # Mark in-progress first, then set done manually via file content
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
     content = task_file.read_text()
     task_file.write_text(content.replace("- [ ]", "- [x]"))
 
@@ -86,7 +86,7 @@ def test_start_task_with_subtasks_lists_pending(story_id: str) -> None:
 def test_start_task_with_subtasks_no_pending_shows_message(story_id: str) -> None:
     task_id = add_subtask(story_id, "Subtask one").task_id
     # Mark the only subtask as done via file
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
     content = task_file.read_text()
     task_file.write_text(content.replace("- [ ]", "- [x]"))
     result = assert_invoke(app, ["start", story_id], expect_error=True)
@@ -107,7 +107,7 @@ def test_start_nonexistent_task_fails() -> None:
 def test_start_subtask_sets_parent_in_progress(story_id: str) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["start", task_id])
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
     task = parse_task_file(task_file).task
     assert task.status == TaskStatus.IN_PROGRESS
 
@@ -118,7 +118,7 @@ def test_start_subtask_parent_stays_pending_when_others_all_pending(
     # Two subtasks; start none → parent stays pending
     add_subtask(story_id, "Task one")
     add_subtask(story_id, "Task two")
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
     task = parse_task_file(task_file).task
     assert task.status == TaskStatus.PENDING
 
@@ -157,7 +157,7 @@ def test_start_idempotent_flushes_corrected_statuses(story_id: str) -> None:
     the corrected parent status must still be flushed to disk.
     """
     task_id = add_subtask(story_id, "Task one").task_id
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = next(Path("tasker").glob(f"{story_id}-*.md"))
 
     # simulate manual edit: mark subtask in-progress but leave parent pending
     content = task_file.read_text()
