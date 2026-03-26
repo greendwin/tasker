@@ -5,7 +5,7 @@ import typer
 from typer_di import TyperDI
 
 from tasker.base_types import Task
-from tasker.exceptions import TaskArchivedError
+from tasker.exceptions import TaskArchivedError, TaskValidateError
 from tasker.repo import TaskRepo
 from tasker.utils import console
 
@@ -41,6 +41,13 @@ def get_task_repo() -> TaskRepo:
 
 
 def resolve_ref(repo: TaskRepo, task_ref: str, *, save_recent: bool = False) -> Task:
+    if task_ref == "q":
+        recent_id = load_recent(repo)
+        if recent_id is None:
+            raise TaskValidateError("Recent task was not set yet", task_ref=task_ref)
+
+        task_ref = recent_id
+
     try:
         task = repo.resolve_ref(task_ref)
     except TaskArchivedError as ex:

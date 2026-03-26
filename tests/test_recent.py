@@ -139,3 +139,30 @@ def test_gitignore_preserves_existing_content(tasks_root: Path) -> None:
 
 def test_load_recent_returns_none_when_no_file(tasks_root: Path) -> None:
     assert _read_recent(tasks_root) is None
+
+
+# ---------------------------------------------------------------------------
+# Resolve 'q' reference
+# ---------------------------------------------------------------------------
+
+
+def test_q_resolves_to_recent_task(s1: str, tasks_root: Path) -> None:
+    t01 = add_subtask(s1, "Task A").task_id
+    assert_invoke(app, ["start", t01])  # sets recent to t01
+
+    # 'q' should resolve to t01 — use edit which requires valid task ref
+    assert_invoke(app, ["edit", "q", "--title", "Updated via q"])
+
+
+def test_q_errors_when_no_recent(tasks_root: Path) -> None:
+    assert_invoke(app, ["edit", "q", "--title", "nope"], expect_error=True)
+
+
+def test_q_does_not_update_recent(s1: str, tasks_root: Path) -> None:
+    t01 = add_subtask(s1, "Task A").task_id
+    t02 = add_subtask(s1, "Task B").task_id
+    assert_invoke(app, ["start", t02])  # sets recent to t02
+
+    # 'q' is not a direct link — recent should stay as t02
+    assert_invoke(app, ["edit", "q", "--title", "Edited via q"])
+    assert _read_recent(tasks_root) == t02
