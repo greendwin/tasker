@@ -67,6 +67,14 @@ def test_move_subtask_to_root(s1: str) -> None:
     assert "root" in result.output
 
 
+def test_move_inline_subtask_to_root_creates_file(s1: str, tasks_root: Path) -> None:
+    """Moving an inline task to root must create a file (s09t06)."""
+    t01 = add_subtask(s1, "Promote me").task_id
+    assert_invoke(app, ["move", t01, "--root"])
+    new_files = list(tasks_root.glob("s*-promote-me.md"))
+    assert len(new_files) == 1
+
+
 def test_move_file_subtask_to_root(s1: str) -> None:
     t01 = add_subtask(s1, "Promote me", details="Has content").task_id
     result = assert_invoke(app, ["move", t01, "--root"])
@@ -82,7 +90,7 @@ def test_move_extended_subtask_to_root(s1: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# ID recalculation (s09t03)
+# ID recalculation
 # ---------------------------------------------------------------------------
 
 
@@ -121,7 +129,7 @@ def test_json_move_to_root(s1: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# File cleanup (s09t04)
+# File cleanup
 # ---------------------------------------------------------------------------
 
 

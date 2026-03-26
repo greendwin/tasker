@@ -12,4 +12,5 @@ status: pending
 - [x] s09t03: Recalc task ids, show list of task renames (in --json-output too)
 - [x] s09t04: Remove old files (need to store original file, current heuristics is not enough)
 - [x] s09t05: Refactor move code - store original files in Loader (see s13)
-- [ ] s09t06: BUG: moving inline task to root does not create a task
+- [x] s09t06: BUG: moving inline task to root does not create a task
+- [ ] [s09t07](s09t07-task-degradation.md): Task degradation

@@ -83,6 +83,9 @@ def _convert_to_root(task: Task, *, loader: TaskLoader) -> list[TaskRename]:
     task.id = find_next_root_task_id(loader)
     _reregister_tree(task, prev_id, renames, loader=loader)
 
+    # root tasks must be file-based
+    upgrade_to_filebased(task, loader=loader)
+
     loader.flush_to_disk()
 
     return renames
