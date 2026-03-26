@@ -1,16 +1,14 @@
 import dataclasses
 import re
+import shutil
 from pathlib import Path
 
 from tasker.base_types import Task, TaskStatus, is_root_task_id
 from tasker.exceptions import TaskHasSubtasksError, TaskValidateError
-from tasker.parse import (
-    ParsedSubtask,
-    detect_task_type,
-    parse_task,
-    parse_task_ref,
-)
+from tasker.parse import ParsedSubtask, detect_task_type, parse_task, parse_task_ref
 from tasker.render import build_task_file_path, render_task, write_task_file
+
+_ARCHIVE_DIR = "archive"
 
 
 @dataclasses.dataclass
@@ -22,6 +20,7 @@ class _DiskState:
 class TaskRepo:
     def __init__(self, root: Path) -> None:
         self.root = root
+        self.archive_root = root / _ARCHIVE_DIR
         self._root_tasks: dict[str, Task] = {}
         self._tasks: dict[str, Task] = {}
         self._disk_state: dict[str, _DiskState] = {}
@@ -148,6 +147,40 @@ class TaskRepo:
         self._close_recursive(task, TaskStatus.DONE, closed_tasks)
         self._update_parents_status(task)
         return closed_tasks[1:]  # don't include root task
+
+    def archive_task(self, task: Task, *, force: bool = False) -> list[Task] | None:
+        if not is_root_task_id(task.id):
+            raise TaskValidateError(
+                f"Only root tasks can be archived, {task.id!r} is a subtask.",
+                task_ref=task.ref,
+            )
+
+        forced: list[Task] | None = None
+        if not task.is_closed:
+            if not force:
+                raise TaskValidateError(
+                    f"Task {task.id!r} is not closed. "
+                    "Use --force to cancel open subtasks and archive.",
+                    task_ref=task.id,
+                )
+            forced = self.cancel_task(task, force=True)
+
+        # flush before moving so files are up-to-date
+        self.flush_to_disk()
+
+        self.archive_root.mkdir(exist_ok=True)
+
+        # move task file(s) to archive
+        if task.extended:
+            src = self.root / task.ref
+            dst = self.archive_root / task.ref
+            shutil.move(str(src), str(dst))
+        else:
+            src = self.root / f"{task.ref}.md"
+            dst = self.archive_root / f"{task.ref}.md"
+            shutil.move(str(src), str(dst))
+
+        return forced
 
     def _close_recursive(
         self,
