@@ -50,7 +50,7 @@ def test_archive_moves_extended_dir_to_archive(story_id: str) -> None:
     assert (Path("planning") / "archive" / dirname / "README.md").exists()
 
 
-# --- s11t01: task must be closed ---
+# --- task must be closed ---
 
 
 def test_archive_pending_task_fails(story_id: str) -> None:
@@ -83,7 +83,7 @@ def test_archive_subtask_fails(story_id: str) -> None:
     assert "subtask" in result.output.lower()
 
 
-# --- s11t02: --force cancels open subtasks ---
+# --- --force cancels open subtasks ---
 
 
 def test_archive_force_pending_task(story_id: str) -> None:
@@ -159,3 +159,15 @@ def test_json_archive_not_closed_outputs_error(story_id: str) -> None:
 
 def test_archive_nonexistent_task_fails() -> None:
     assert_invoke(app, ["archive", "s99"], expect_error=True)
+
+
+# --- new task ID must not collide with archived IDs ---
+
+
+def test_new_task_skips_archived_ids(story_id: str) -> None:
+    assert_invoke(app, ["done", "--force", story_id])
+    assert_invoke(app, ["archive", story_id])
+
+    # create a new task — its ID must be higher than the archived one
+    new = create_task("Second story")
+    assert new.task_id > story_id

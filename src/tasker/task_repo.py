@@ -102,7 +102,7 @@ class TaskRepo:
 
     def _next_child_id(self, parent: Task | None) -> str:
         if parent is None:
-            return find_next_root_task_id(self.root)
+            return find_next_root_task_id(self.root, self.archive_root)
 
         return get_next_subtask_id(parent)
 
@@ -326,11 +326,19 @@ def generate_slug(title: str) -> str:
     return "-".join(words)
 
 
-def find_next_root_task_id(root: Path) -> str:
-    existing = [
-        int(m.group(1)) for p in root.iterdir() if (m := re.match(r"^s(\d+)", p.name))
-    ]
+def find_next_root_task_id(root: Path, archive_root: Path) -> str:
+    existing = _scan_root_task_nums(root) + _scan_root_task_nums(archive_root)
     return f"s{max(existing, default=0) + 1:02d}"
+
+
+def _scan_root_task_nums(directory: Path) -> list[int]:
+    if not directory.is_dir():
+        return []
+    return [
+        int(m.group(1))
+        for p in directory.iterdir()
+        if (m := re.match(r"^s(\d+)", p.name))
+    ]
 
 
 def get_next_subtask_id(parent: Task) -> str:
