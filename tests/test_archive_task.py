@@ -224,3 +224,62 @@ def test_json_archived_task_reports_archived(story_id: str) -> None:
     data = json.loads(result.output)
     assert "error" in data
     assert data.get("archived") is True
+
+
+# --- unarchive command ---
+
+
+def test_unarchive_restores_basic_file(story_id: str) -> None:
+    _archive_story(story_id)
+    task_file = next(Path("planning/archive").glob(f"{story_id}-*.md"))
+    filename = task_file.name
+    result = assert_invoke(app, ["unarchive", story_id])
+    assert "unarchived" in result.output
+    assert not task_file.exists()
+    assert (Path("planning") / filename).exists()
+
+
+def test_unarchive_restores_extended_dir(story_id: str) -> None:
+    add_subtask(story_id, "Subtask", details="Some details")
+    assert_invoke(app, ["done", "--force", story_id])
+    assert_invoke(app, ["archive", story_id])
+    archived_dir = next(Path("planning/archive").glob(f"{story_id}-*/"))
+    dirname = archived_dir.name
+    result = assert_invoke(app, ["unarchive", story_id])
+    assert "unarchived" in result.output
+    assert not archived_dir.exists()
+    assert (Path("planning") / dirname).is_dir()
+    assert (Path("planning") / dirname / "README.md").exists()
+
+
+def test_unarchive_allows_actions_on_task(story_id: str) -> None:
+    _archive_story(story_id)
+    assert_invoke(app, ["unarchive", story_id])
+    # should be able to reset and start the task again
+    result = assert_invoke(app, ["reset", story_id])
+    assert "pending" in result.output
+
+
+def test_unarchive_nonexistent_task_fails() -> None:
+    result = assert_invoke(app, ["unarchive", "s99"], expect_error=True)
+    assert "not found" in result.output.lower()
+
+
+def test_unarchive_active_task_fails(story_id: str) -> None:
+    result = assert_invoke(app, ["unarchive", story_id], expect_error=True)
+    assert "not found" in result.output.lower()
+
+
+def test_unarchive_subtask_fails(story_id: str) -> None:
+    t01 = add_subtask(story_id, "Subtask").task_id
+    _archive_story(story_id)
+    result = assert_invoke(app, ["unarchive", t01], expect_error=True)
+    assert "root" in result.output.lower()
+
+
+def test_json_unarchive_outputs_task_ref(story_id: str) -> None:
+    _archive_story(story_id)
+    result = assert_invoke(app, ["--json-output", "unarchive", story_id])
+    data = json.loads(result.output)
+    assert "task_ref" in data
+    assert story_id in data["task_ref"]

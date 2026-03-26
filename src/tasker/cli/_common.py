@@ -6,7 +6,6 @@ from typer_di import TyperDI
 
 from tasker.base_types import Task
 from tasker.exceptions import TaskArchivedError
-from tasker.parse import parse_task_ref
 from tasker.task_repo import TaskRepo
 from tasker.utils import console
 
@@ -47,5 +46,5 @@ def resolve_ref(repo: TaskRepo, task_ref: str) -> Task:
             raise
 
         console.print(f"[yellow]Task [blue]{ex.task_ref}[/blue] is archived.[/yellow]")
-        console.print(f"Unarchive it first before performing actions on it.")
+        console.print("Unarchive it first before performing actions on it.")
         raise typer.Exit(1) from ex

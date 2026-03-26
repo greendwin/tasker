@@ -47,6 +47,21 @@ def cmd_archive_task(
         )
 
 
+@app.command("unarchive", help="Restore an archived root task.")
+def cmd_unarchive_task(
+    *,
+    task_ref: Annotated[str, typer.Argument(help="Root task ID to unarchive.")],
+    repo: TaskRepo = Depends(get_task_repo),
+) -> None:
+    with console.catching_output():
+        ref_name = repo.unarchive_task(task_ref)
+
+        console.print(
+            f"[green]Task [blue]{ref_name}[/blue] unarchived[/green]",
+            json_output={"task_ref": ref_name},
+        )
+
+
 def _report_not_root_task(task: Task) -> None:
     console.print(
         f"[yellow]Only root tasks can be archived —"

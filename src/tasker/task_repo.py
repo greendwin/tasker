@@ -182,6 +182,28 @@ class TaskRepo:
 
         return forced
 
+    def unarchive_task(self, task_ref: str) -> str:
+        ti = parse_task_ref(task_ref)
+
+        if not is_root_task_id(ti.task_id):
+            raise TaskValidateError(
+                f"Only root tasks can be unarchived, {ti.task_id!r} is a subtask.",
+                task_ref=task_ref,
+            )
+
+        candidates = list(self.archive_root.glob(f"{ti.root_id}-*"))
+        if not candidates:
+            raise TaskValidateError(
+                f"Task {ti.root_id!r} not found in archive.",
+                task_ref=ti.root_id,
+            )
+
+        src = candidates[0]
+        dst = self.root / src.name
+        shutil.move(str(src), str(dst))
+
+        return src.name
+
     def _close_recursive(
         self,
         task: Task,
