@@ -4,7 +4,7 @@ import pytest
 
 from tasker.exceptions import TaskerError
 from tasker.render import build_task_file_path
-from tasker.task_repo import TaskRepo, generate_slug
+from tasker.repo import TaskRepo, generate_slug
 
 from .helpers import add_subtask, create_task
 

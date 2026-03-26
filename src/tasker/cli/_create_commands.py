@@ -4,7 +4,7 @@ from typing import Annotated, Optional
 import typer
 from typer_di import Depends
 
-from tasker.task_repo import TaskRepo
+from tasker.repo import TaskRepo
 from tasker.utils import console
 
 from ._common import app, get_task_repo, resolve_ref
