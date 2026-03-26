@@ -1,7 +1,14 @@
+from __future__ import annotations
+
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from tasker.base_types import Task, TaskStatus
+from tasker.base_types import Task, TaskStatus, is_root_task_id
+from tasker.parse import parse_task_ref
+
+if TYPE_CHECKING:
+    from ._task_repo import TaskRepo
 
 
 def generate_slug(title: str) -> str:
@@ -62,3 +69,15 @@ def invalidate_task_flags(root: Task) -> None:
 
 def has_file_subtasks(task: Task) -> bool:
     return any(not s.is_inline for s in task.subtasks)
+
+
+def update_parents_status(task: Task, *, repo: TaskRepo) -> None:
+    cur_id = task.id
+    while not is_root_task_id(cur_id):
+        ri = parse_task_ref(cur_id)
+        parent = repo.resolve_ref(ri.parent_id)
+
+        assert not parent.is_inline
+        parent.status = get_status_from_subtasks(parent)
+        parent.extended = parent.extended or has_file_subtasks(parent)
+        cur_id = parent.id

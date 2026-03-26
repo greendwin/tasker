@@ -1,20 +1,19 @@
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-from tasker.base_types import Task, TaskStatus, is_root_task_id
+from tasker.base_types import Task, TaskStatus
 from tasker.exceptions import TaskArchivedError, TaskHasSubtasksError, TaskValidateError
 from tasker.parse import ParsedSubtask, detect_task_type, parse_task, parse_task_ref
 from tasker.render import build_task_file_path, render_task, write_task_file
 
+from ._archive_task import archive_task_impl, unarchive_task_impl
 from ._move_task import TaskRename, move_task_impl
 from ._utils import (
     find_next_root_task_id,
     generate_slug,
     get_next_subtask_id,
-    get_status_from_subtasks,
-    has_file_subtasks,
     invalidate_task_flags,
+    update_parents_status,
 )
 
 _ARCHIVE_DIR = "archive"
@@ -105,7 +104,7 @@ class TaskRepo:
 
         parent.subtasks.append(subtask)
         self._tasks[child_id] = subtask
-        self._update_parents_status(subtask)
+        update_parents_status(subtask, repo=self)
 
         return subtask
 
@@ -120,125 +119,48 @@ class TaskRepo:
             raise TaskHasSubtasksError(task)
 
         task.status = TaskStatus.IN_PROGRESS
-        self._update_parents_status(task)
+        update_parents_status(task, repo=self)
 
     def reset_task(self, task: Task) -> None:
         if not _is_leaf_task(task):
             raise TaskHasSubtasksError(task)
 
         task.status = TaskStatus.PENDING
-        self._update_parents_status(task)
+        update_parents_status(task, repo=self)
 
     def cancel_task(self, task: Task, *, force: bool = False) -> list[Task] | None:
         if _is_leaf_task(task):
             task.status = TaskStatus.CANCELLED
-            self._update_parents_status(task)
+            update_parents_status(task, repo=self)
             return None
 
         if not force:
             raise TaskHasSubtasksError(task)
 
         closed_tasks: list[Task] = []
-        self._close_recursive(task, TaskStatus.CANCELLED, closed_tasks)
-        self._update_parents_status(task)
+        _close_recursive(task, TaskStatus.CANCELLED, closed_tasks)
+        update_parents_status(task, repo=self)
         return closed_tasks[1:]  # don't include root task
 
     def finish_task(self, task: Task, *, force: bool = False) -> list[Task] | None:
         if _is_leaf_task(task):
             task.status = TaskStatus.DONE
-            self._update_parents_status(task)
+            update_parents_status(task, repo=self)
             return None
 
         if not force:
             raise TaskHasSubtasksError(task)
 
         closed_tasks: list[Task] = []
-        self._close_recursive(task, TaskStatus.DONE, closed_tasks)
-        self._update_parents_status(task)
+        _close_recursive(task, TaskStatus.DONE, closed_tasks)
+        update_parents_status(task, repo=self)
         return closed_tasks[1:]  # don't include root task
 
-    def _close_recursive(
-        self,
-        task: Task,
-        new_status: TaskStatus,
-        closed_tasks: list[Task],
-    ) -> None:
-        if task.is_closed:
-            # already closed — don't override (e.g. don't cancel a done task)
-            return
-
-        closed_tasks.append(task)
-        task.status = new_status
-
-        for subtask in task.subtasks:
-            self._close_recursive(subtask, new_status, closed_tasks)
-
-    def _update_parents_status(self, task: Task) -> None:
-        cur_id = task.id
-        while not is_root_task_id(cur_id):
-            ri = parse_task_ref(cur_id)
-            parent = self.resolve_ref(ri.parent_id)
-
-            assert not parent.is_inline
-            parent.status = get_status_from_subtasks(parent)
-            parent.extended = parent.extended or has_file_subtasks(parent)
-            cur_id = parent.id
-
     def archive_task(self, task: Task, *, force: bool = False) -> list[Task] | None:
-        if not is_root_task_id(task.id):
-            raise TaskValidateError(
-                f"Only root tasks can be archived, {task.id!r} is a subtask.",
-                task_ref=task.ref,
-            )
-
-        forced: list[Task] | None = None
-        if not task.is_closed:
-            if not force:
-                raise TaskValidateError(
-                    f"Task {task.id!r} is not closed. "
-                    "Use --force to cancel open subtasks and archive.",
-                    task_ref=task.id,
-                )
-            forced = self.cancel_task(task, force=True)
-
-        # flush before moving so files are up-to-date
-        self.flush_to_disk()
-
-        self.archive_root.mkdir(exist_ok=True)
-
-        # move task file(s) to archive
-        if task.extended:
-            src = self.root / task.ref
-            dst = self.archive_root / task.ref
-            shutil.move(str(src), str(dst))
-        else:
-            src = self.root / f"{task.ref}.md"
-            dst = self.archive_root / f"{task.ref}.md"
-            shutil.move(str(src), str(dst))
-
-        return forced
+        return archive_task_impl(self, task, force=force)
 
     def unarchive_task(self, task_ref: str) -> str:
-        ti = parse_task_ref(task_ref)
-
-        if not is_root_task_id(ti.task_id):
-            raise TaskValidateError(
-                f"Only root tasks can be unarchived, {ti.task_id!r} is a subtask.",
-                task_ref=task_ref,
-            )
-
-        candidates = list(self.archive_root.glob(f"{ti.root_id}-*"))
-        if not candidates:
-            raise TaskValidateError(
-                f"Task {ti.root_id!r} not found in archive.",
-                task_ref=ti.root_id,
-            )
-
-        src = candidates[0]
-        dst = self.root / src.name
-        shutil.move(str(src), str(dst))
-
-        return src.name
+        return unarchive_task_impl(self, task_ref)
 
     def move_task(
         self,
@@ -364,3 +286,17 @@ class TaskRepo:
 
 def _is_leaf_task(task: Task) -> bool:
     return task.is_inline or not task.subtasks
+
+
+def _close_recursive(
+    task: Task, new_status: TaskStatus, closed_tasks: list[Task]
+) -> None:
+    if task.is_closed:
+        # already closed — don't override (e.g. don't cancel a done task)
+        return
+
+    closed_tasks.append(task)
+    task.status = new_status
+
+    for subtask in task.subtasks:
+        _close_recursive(subtask, new_status, closed_tasks)

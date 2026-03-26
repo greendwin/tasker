@@ -8,7 +8,12 @@ from tasker.base_types import Task, is_root_task_id
 from tasker.exceptions import TaskValidateError
 from tasker.parse import parse_task_ref
 
-from ._utils import generate_slug, get_status_from_subtasks, has_file_subtasks
+from ._utils import (
+    generate_slug,
+    get_status_from_subtasks,
+    has_file_subtasks,
+    update_parents_status,
+)
 
 if TYPE_CHECKING:
     from ._task_repo import TaskRepo
@@ -69,7 +74,7 @@ def move_task_impl(
         if new_parent.is_inline:
             new_parent.slug = generate_slug(new_parent.title)
         new_parent.subtasks.append(task)
-        repo._update_parents_status(task)
+        update_parents_status(task, repo=repo)
 
     # --- persist ---
     repo.flush_to_disk()
