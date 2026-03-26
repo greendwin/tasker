@@ -252,3 +252,41 @@ def _report_finishing_nonleaf_task(task: Task) -> None:
     console.print("\nOpen subtasks:")
     for t in open_tasks:
         console.print(f"  [blue]{t.id}[/blue]: {t.title}")
+
+
+@app.command("edit", help="Edit task properties (title, details, slug).")
+def cmd_edit_task(
+    *,
+    task_ref: Annotated[str, typer.Argument(help="Task ID to edit.")],
+    title: Annotated[
+        str | None,
+        typer.Option("--title", "-t", help="New task title."),
+    ] = None,
+    details: Annotated[
+        str | None,
+        typer.Option("--details", "-d", help="New task description."),
+    ] = None,
+    slug: Annotated[
+        str | None,
+        typer.Option("--slug", "-s", help="New task slug."),
+    ] = None,
+    repo: TaskRepo = Depends(get_task_repo),
+) -> None:
+    with console.catching_output():
+        if title is None and details is None and slug is None:
+            console.print(
+                "[red]Error:[/red] At least one of"
+                " --title, --details, or --slug is required.",
+                json_output={"error": "No fields to edit."},
+            )
+            raise typer.Exit(1)
+
+        task = resolve_ref(repo, task_ref)
+
+        repo.edit_task(task, title=title, description=details, slug=slug)
+        repo.flush_to_disk()
+
+        console.print(
+            f"[green]Task [blue]{task.ref}[/blue] updated[/green]",
+            json_output={"task_ref": task.ref},
+        )

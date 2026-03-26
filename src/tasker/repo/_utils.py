@@ -77,3 +77,12 @@ def update_parents_status(
         parent.status = get_status_from_subtasks(parent)
         parent.extended = parent.extended or has_file_subtasks(parent)
         cur_id = parent.id
+
+
+def upgrade_to_filebased(task: Task, *, loader: TaskLoader) -> None:
+    if not task.is_inline:
+        # already file-based
+        return
+
+    task.slug = generate_slug(task.title)
+    update_parents_status(task, loader=loader)

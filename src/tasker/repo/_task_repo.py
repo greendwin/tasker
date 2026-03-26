@@ -11,6 +11,7 @@ from ._utils import (
     generate_slug,
     get_next_subtask_id,
     update_parents_status,
+    upgrade_to_filebased,
 )
 
 
@@ -65,9 +66,8 @@ class TaskRepo:
     ) -> Task:
         title = title[:1].upper() + title[1:]
 
-        if parent.is_inline:
-            # upgrade inline task to basic (file-backed) form
-            parent.slug = generate_slug(parent.title)
+        # upgrade inline task to basic (file-backed) form
+        upgrade_to_filebased(parent, loader=self.loader)
 
         child_id = get_next_subtask_id(parent)
 
@@ -143,6 +143,25 @@ class TaskRepo:
             new_parent=new_parent,
             loader=self.loader,
         )
+
+    def edit_task(
+        self,
+        task: Task,
+        *,
+        title: str | None = None,
+        description: str | None = None,
+        slug: str | None = None,
+    ) -> None:
+        if title is not None:
+            task.title = title[:1].upper() + title[1:]
+
+        if description is not None:
+            upgrade_to_filebased(task, loader=self.loader)
+            task.description = description
+
+        if slug is not None:
+            upgrade_to_filebased(task, loader=self.loader)
+            task.slug = slug
 
     def flush_to_disk(self) -> None:
         self.loader.flush_to_disk()

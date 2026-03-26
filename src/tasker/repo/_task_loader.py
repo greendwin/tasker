@@ -139,7 +139,7 @@ def _load_task_tree(
         raise TaskValidateError(f"Task {root_id!r} not found", task_ref=root_id)
 
     if len(candidates) > 1:
-        names = ", ".join(p.name for p in candidates)
+        names = "".join(f"\n  - {p.name}" for p in candidates)
         raise TaskValidateError(
             f"Ambiguous task {root_id!r}: multiple files match: {names}",
             task_ref=root_id,

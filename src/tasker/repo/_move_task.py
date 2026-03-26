@@ -12,6 +12,7 @@ from ._utils import (
     generate_slug,
     get_next_subtask_id,
     update_parents_status,
+    upgrade_to_filebased,
 )
 
 
@@ -47,8 +48,7 @@ def move_task_impl(
     _detach_from_parent(task, loader=loader)
 
     # upgrade new parent if needed
-    if new_parent.is_inline:
-        new_parent.slug = generate_slug(new_parent.title)
+    upgrade_to_filebased(new_parent, loader=loader)
 
     renames: list[TaskRename] = []
 
