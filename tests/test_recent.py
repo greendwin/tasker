@@ -159,10 +159,54 @@ def test_q_errors_when_no_recent(tasks_root: Path) -> None:
 
 
 def test_q_does_not_update_recent(s1: str, tasks_root: Path) -> None:
-    t01 = add_subtask(s1, "Task A").task_id
+    add_subtask(s1, "Task A")
     t02 = add_subtask(s1, "Task B").task_id
     assert_invoke(app, ["start", t02])  # sets recent to t02
 
     # 'q' is not a direct link — recent should stay as t02
     assert_invoke(app, ["edit", "q", "--title", "Edited via q"])
     assert _read_recent(tasks_root) == t02
+
+
+# ---------------------------------------------------------------------------
+# Resolve 'p' reference
+# ---------------------------------------------------------------------------
+
+
+def test_p_resolves_to_parent_of_recent(s1: str, tasks_root: Path) -> None:
+    t01 = add_subtask(s1, "Task A").task_id
+    assert_invoke(app, ["start", t01])  # recent = s01t01
+
+    # 'p' should resolve to s01 (parent of s01t01)
+    assert_invoke(app, ["edit", "p", "--title", "Parent edited via p"])
+
+
+def test_p_resolves_to_parent_of_nested_task(tasks_root: Path) -> None:
+    s1 = create_task("Story one").task_id
+    t01 = add_subtask(s1, "Task A", details="d").task_id
+    t0101 = add_subtask(t01, "Subtask A1").task_id
+    assert_invoke(app, ["start", t0101])  # recent = s01t0101
+
+    # 'p' should resolve to s01t01 (parent of s01t0101)
+    assert_invoke(app, ["edit", "p", "--title", "Mid-level edited via p"])
+
+
+def test_p_on_root_task_resolves_to_itself(tasks_root: Path) -> None:
+    s1 = create_task("Story one").task_id
+    assert_invoke(app, ["edit", s1, "--title", "Set recent"])  # recent = s01
+
+    # 'p' of root task is the root task itself
+    assert_invoke(app, ["edit", "p", "--title", "Root edited via p"])
+
+
+def test_p_errors_when_no_recent(tasks_root: Path) -> None:
+    assert_invoke(app, ["edit", "p", "--title", "nope"], expect_error=True)
+
+
+def test_p_updates_recent_to_parent(s1: str, tasks_root: Path) -> None:
+    t01 = add_subtask(s1, "Task A").task_id
+    assert_invoke(app, ["start", t01])  # recent = s01t01
+
+    # 'p' resolves to s01, which is a direct ref — so recent is updated to s01
+    assert_invoke(app, ["edit", "p", "--title", "Parent edited via p"])
+    assert _read_recent(tasks_root) == s1

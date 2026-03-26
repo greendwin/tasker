@@ -6,6 +6,7 @@ from typer_di import TyperDI
 
 from tasker.base_types import Task
 from tasker.exceptions import TaskArchivedError, TaskValidateError
+from tasker.parse import parse_task_ref
 from tasker.repo import TaskRepo
 from tasker.utils import console
 
@@ -42,11 +43,10 @@ def get_task_repo() -> TaskRepo:
 
 def resolve_ref(repo: TaskRepo, task_ref: str, *, save_recent: bool = False) -> Task:
     if task_ref == "q":
-        recent_id = load_recent(repo)
-        if recent_id is None:
-            raise TaskValidateError("Recent task was not set yet", task_ref=task_ref)
-
-        task_ref = recent_id
+        task_ref = _resolve_recent(repo, task_ref)
+    elif task_ref == "p":
+        recent = parse_task_ref(_resolve_recent(repo, task_ref))
+        task_ref = recent.parent_id
 
     try:
         task = repo.resolve_ref(task_ref)
@@ -72,12 +72,15 @@ def save_recent_task(repo: TaskRepo, task_id: str) -> None:
     (repo.root / _RECENT_FILE).write_text(task_id + "\n")
 
 
-def load_recent(repo: TaskRepo) -> str | None:
+def _resolve_recent(repo: TaskRepo, task_ref: str) -> str:
     path = repo.root / _RECENT_FILE
     if not path.exists():
-        return None
+        raise TaskValidateError("Recent task was not set yet", task_ref=task_ref)
+
     text = path.read_text().strip()
-    return text or None
+    if not text:
+        raise TaskValidateError("Recent task was not set yet", task_ref=task_ref)
+    return text
 
 
 def _ensure_gitignore(root: Path) -> None:
