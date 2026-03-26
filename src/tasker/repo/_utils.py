@@ -79,6 +79,20 @@ def update_parents_status(
         cur_id = parent.id
 
 
+def try_downgrade_to_inline(task: Task) -> None:
+    if task.is_inline or is_root_task_id(task.id):
+        return
+
+    if task.description is not None or task.extra_sections is not None:
+        return
+
+    if task.subtasks:
+        return
+    
+    task.slug = None
+    task.extended = False
+
+
 def upgrade_to_filebased(task: Task, *, loader: TaskLoader) -> None:
     if not task.is_inline:
         # already file-based

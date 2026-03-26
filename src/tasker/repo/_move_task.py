@@ -10,6 +10,7 @@ from ._task_loader import TaskLoader
 from ._utils import (
     find_next_root_task_id,
     get_next_subtask_id,
+    try_downgrade_to_inline,
     update_parents_status,
     upgrade_to_filebased,
 )
@@ -102,6 +103,7 @@ def _detach_from_parent(task: Task, *, loader: TaskLoader) -> None:
 
     assert task in parent.subtasks
     parent.subtasks.remove(task)
+    try_downgrade_to_inline(parent)
     update_parents_status(parent, update_itself=True, loader=loader)
 
 

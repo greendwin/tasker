@@ -411,3 +411,31 @@ def test_move_one_of_two_file_subtasks_keeps_source_extended(
     # Source should still be extended (directory)
     src_dirs = [p for p in tasks_root.glob(f"{s1}-*") if p.is_dir()]
     assert len(src_dirs) == 1
+
+
+def test_move_all_subtasks_downgrades_parent_to_inline(
+    s1: str, s2: str, tasks_root: Path
+) -> None:
+    """Moving all subtasks from a parent without description should
+    downgrade it to inline in its own parent (s09t0704)."""
+    t01 = add_subtask(s1, "Container", details="Has text").task_id
+    t0101 = add_subtask(t01, "Child").task_id
+
+    # s1 is now extended (directory) because t01 has details
+    story_dir = next(tasks_root.glob(f"{s1}-*/"))
+    container_file = next(story_dir.glob(f"{t01}-*.md"))
+    content = container_file.read_text()
+    # Remove description so container can go inline after losing subtasks
+    lines = content.split("\n")
+    new_lines = [line for line in lines if line != "Has text"]
+    container_file.write_text("\n".join(new_lines))
+
+    # Move the only subtask out
+    assert_invoke(app, ["move", t0101, "--parent", s2])
+
+    # Container should now be inline in s1's subtask list
+    # s1 should have downgraded from extended to basic (single file)
+    story_file = next(tasks_root.glob(f"{s1}-*.md"))
+    story_content = story_file.read_text()
+    assert "Container" in story_content
+    assert f"- [ ] {t01}: Container" in story_content
