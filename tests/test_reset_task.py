@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -179,3 +180,17 @@ def test_reset_idempotent_flushes_corrected_statuses(
     # parent status must now be corrected on disk
     updated = task_file.read_text()
     assert "status: pending" in updated
+
+
+def test_reset_filebased_leaf_with_description_stays_filebased(
+    story_id: str, tasks_root: Path
+) -> None:
+    """File-based task with description stays file-based after reset."""
+    task_id = add_subtask(story_id, "My task", details="Keep me").task_id
+    assert_invoke(app, ["start", task_id])
+    assert_invoke(app, ["reset", task_id])
+
+    # Task file should still exist
+    story_dir = next(tasks_root.glob(f"{story_id}-*/"))
+    task_files = list(story_dir.glob(f"{task_id}-*.md"))
+    assert len(task_files) == 1

@@ -359,3 +359,47 @@ def test_json_move_idempotent(s1: str) -> None:
     data = json.loads(result.output)
     assert data.get("already") is True
     assert "task_ref" in data
+
+
+# ---------------------------------------------------------------------------
+# Source parent downgrade after move (s12t04)
+# ---------------------------------------------------------------------------
+
+
+def test_move_last_file_subtask_downgrades_source_to_basic(
+    s1: str, s2: str, tasks_root: Path
+) -> None:
+    """Moving the only file-based subtask out should downgrade the source
+    from extended (directory) to basic (single file)."""
+    t01 = add_subtask(s1, "File task", details="Has details").task_id
+
+    # Source is extended (directory)
+    src_dirs = list(tasks_root.glob(f"{s1}-*/"))
+    assert len(src_dirs) == 1
+    assert src_dirs[0].is_dir()
+
+    assert_invoke(app, ["move", t01, "--parent", s2])
+
+    # Source should now be a basic file, not a directory
+    src_files = list(tasks_root.glob(f"{s1}-*.md"))
+    assert len(src_files) == 1
+    assert src_files[0].is_file()
+
+    # Old directory should be gone
+    src_dirs_after = [p for p in tasks_root.glob(f"{s1}-*") if p.is_dir()]
+    assert src_dirs_after == []
+
+
+def test_move_one_of_two_file_subtasks_keeps_source_extended(
+    s1: str, s2: str, tasks_root: Path
+) -> None:
+    """Moving one file subtask while another remains should keep
+    the source as extended (directory)."""
+    add_subtask(s1, "Task A", details="Details A")
+    t02 = add_subtask(s1, "Task B", details="Details B").task_id
+
+    assert_invoke(app, ["move", t02, "--parent", s2])
+
+    # Source should still be extended (directory)
+    src_dirs = [p for p in tasks_root.glob(f"{s1}-*") if p.is_dir()]
+    assert len(src_dirs) == 1

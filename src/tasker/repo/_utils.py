@@ -66,7 +66,7 @@ def update_parents_status(
 ) -> None:
     if update_itself:
         task.status = get_status_from_subtasks(task)
-        task.extended = task.extended or has_file_subtasks(task)
+        task.extended = has_file_subtasks(task)
 
     cur_id = task.id
     while not is_root_task_id(cur_id):
@@ -75,7 +75,7 @@ def update_parents_status(
 
         assert not parent.is_inline
         parent.status = get_status_from_subtasks(parent)
-        parent.extended = parent.extended or has_file_subtasks(parent)
+        parent.extended = has_file_subtasks(parent)
         cur_id = parent.id
 
 
