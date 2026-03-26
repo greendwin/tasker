@@ -1,7 +1,7 @@
 import pytest
 
 from tasker.exceptions import TaskValidateError
-from tasker.parse import ParsedRef, parse_task_ref
+from tasker.parse import ParsedRef, make_child_ref, parse_task_ref
 
 
 def test_root_story_id_only() -> None:
@@ -87,3 +87,30 @@ def test_partial_subtask_id_raises() -> None:
     # "t" alone without a digit group is not valid
     with pytest.raises(TaskValidateError, match="Invalid task ref"):
         parse_task_ref("t01")
+
+
+# ---------------------------------------------------------------------------
+# make_child_ref
+# ---------------------------------------------------------------------------
+
+
+def test_make_child_ref_from_root() -> None:
+    assert make_child_ref("s01", "01") == "s01t01"
+
+
+def test_make_child_ref_from_subtask() -> None:
+    assert make_child_ref("s01t02", "01") == "s01t0201"
+
+
+def test_make_child_ref_from_nested_subtask() -> None:
+    assert make_child_ref("s01t0203", "04") == "s01t020304"
+
+
+def test_make_child_ref_deep_digits() -> None:
+    assert make_child_ref("s01", "0102") == "s01t0102"
+
+
+def test_make_child_ref_empty_digits() -> None:
+    # Used by get_next_subtask_id to get the prefix
+    assert make_child_ref("s01", "") == "s01t"
+    assert make_child_ref("s01t02", "") == "s01t02"

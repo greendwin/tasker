@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from tasker.base_types import Task, TaskStatus, is_root_task_id
-from tasker.parse import parse_task_ref
+from tasker.parse import make_child_ref, parse_task_ref
 
 if TYPE_CHECKING:
     from ._task_loader import TaskLoader
@@ -34,7 +34,7 @@ def _scan_root_task_nums(directory: Path) -> list[int]:
 
 
 def get_next_subtask_id(parent: Task) -> str:
-    child_prefix = parent.id if "t" in parent.id else parent.id + "t"
+    child_prefix = make_child_ref(parent.id, "")
     existing_nums = [
         int(t.id[len(child_prefix) :])
         for t in parent.subtasks

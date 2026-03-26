@@ -57,6 +57,17 @@ def parse_task_ref(task_ref: str) -> ParsedRef:
     )
 
 
+def make_child_ref(parent_id: str, child_digits: str) -> str:
+    """
+    Build a child task ID by appending *child_digits* under *parent_id*.
+
+    Root IDs (e.g. ``s01``) need a ``t`` separator; subtask IDs
+    (e.g. ``s01t02``) already contain one so digits are appended directly.
+    """
+    prefix = parent_id if "t" in parent_id else parent_id + "t"
+    return prefix + child_digits
+
+
 @dataclass
 class TaskDetectResult:
     task_ref: str

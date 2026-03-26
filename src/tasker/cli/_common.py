@@ -7,7 +7,7 @@ from typer_di import TyperDI
 
 from tasker.base_types import Task
 from tasker.exceptions import TaskArchivedError, TaskValidateError
-from tasker.parse import parse_task_ref
+from tasker.parse import make_child_ref, parse_task_ref
 from tasker.repo import TaskRepo
 from tasker.utils import console
 
@@ -50,7 +50,7 @@ def resolve_ref(repo: TaskRepo, task_ref: str, *, save_recent: bool = False) -> 
         task_ref = recent.parent_id
     elif m := re.fullmatch(r"p((?:\d{2})+)", task_ref):
         recent = parse_task_ref(_resolve_recent(repo, task_ref))
-        task_ref = recent.parent_id + "t" + m.group(1)
+        task_ref = make_child_ref(recent.parent_id, m.group(1))
 
     try:
         task = repo.resolve_ref(task_ref)
