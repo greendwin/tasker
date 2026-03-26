@@ -1,6 +1,6 @@
 ---
 id: s09
-status: done
+status: pending
 ---
 
 # Support move command that attaches subtree to another task or make it a separate story
@@ -11,3 +11,4 @@ status: done
 - [x] s09t02: Support move <ref> --root
 - [x] s09t03: Recalc task ids, show list of task renames (in --json-output too)
 - [x] s09t04: Remove old files (need to store original file, current heuristics is not enough)
+- [ ] s09t05: Refactor move code - store original files in Loader (see s13)
