@@ -11,6 +11,7 @@ from tasker.utils import JsonAppend, console
 from ._common import app, get_task_repo, resolve_ref
 
 
+@app.command("arch", hidden=True)
 @app.command("archive", help="Archive a completed root task.")
 def cmd_archive_task(
     *,
@@ -48,6 +49,7 @@ def cmd_archive_task(
         )
 
 
+@app.command("unarch", hidden=True)
 @app.command("unarchive", help="Restore an archived root task.")
 def cmd_unarchive_task(
     *,
