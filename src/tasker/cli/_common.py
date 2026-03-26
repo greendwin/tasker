@@ -76,7 +76,7 @@ def load_recent(repo: TaskRepo) -> str | None:
 def _ensure_gitignore(root: Path) -> None:
     gitignore = root / _GITIGNORE_FILE
     if not gitignore.exists():
-        gitignore.write_text(_RECENT_FILE + "\n")
+        gitignore.write_text(_GITIGNORE_FILE + "\n" + _RECENT_FILE + "\n")
         return
 
     content = gitignore.read_text()

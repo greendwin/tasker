@@ -102,7 +102,9 @@ def test_gitignore_created(tasks_root: Path) -> None:
     create_task("Test story")
     gitignore = tasks_root / ".gitignore"
     assert gitignore.exists()
-    assert ".recent" in gitignore.read_text().splitlines()
+    lines = gitignore.read_text().splitlines()
+    assert ".recent" in lines
+    assert ".gitignore" in lines
 
 
 def test_gitignore_not_duplicated(tasks_root: Path) -> None:
@@ -112,6 +114,16 @@ def test_gitignore_not_duplicated(tasks_root: Path) -> None:
     gitignore = tasks_root / ".gitignore"
     lines = [ln for ln in gitignore.read_text().splitlines() if ln == ".recent"]
     assert len(lines) == 1
+
+
+def test_gitignore_does_not_add_itself_when_preexisting(tasks_root: Path) -> None:
+    gitignore = tasks_root / ".gitignore"
+    gitignore.write_text("*.tmp\n")
+
+    create_task("Story")
+
+    lines = gitignore.read_text().splitlines()
+    assert ".gitignore" not in lines
 
 
 def test_gitignore_preserves_existing_content(tasks_root: Path) -> None:
