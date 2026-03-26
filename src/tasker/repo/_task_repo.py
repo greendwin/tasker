@@ -38,7 +38,9 @@ class TaskRepo:
         slug: str | None,
         extended: bool,
     ) -> Task:
-        title = title[:1].upper() + title[1:]
+        title = _capitalize(title)
+        if description is not None:
+            description = _capitalize(description)
         root_id = find_next_root_task_id(self.loader)
 
         if slug is None:
@@ -64,7 +66,9 @@ class TaskRepo:
         description: str | None = None,
         slug: str | None = None,
     ) -> Task:
-        title = title[:1].upper() + title[1:]
+        title = _capitalize(title)
+        if description is not None:
+            description = _capitalize(description)
 
         # upgrade inline task to basic (file-backed) form
         upgrade_to_filebased(parent, loader=self.loader)
@@ -153,11 +157,11 @@ class TaskRepo:
         slug: str | None = None,
     ) -> None:
         if title is not None:
-            task.title = title[:1].upper() + title[1:]
+            task.title = _capitalize(title)
 
         if description is not None:
             upgrade_to_filebased(task, loader=self.loader)
-            task.description = description
+            task.description = _capitalize(description)
 
         if slug is not None:
             upgrade_to_filebased(task, loader=self.loader)
@@ -165,6 +169,10 @@ class TaskRepo:
 
     def flush_to_disk(self) -> None:
         self.loader.flush_to_disk()
+
+
+def _capitalize(text: str) -> str:
+    return text[:1].upper() + text[1:]
 
 
 def _is_leaf_task(task: Task) -> bool:

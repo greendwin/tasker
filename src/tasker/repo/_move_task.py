@@ -9,7 +9,6 @@ from tasker.parse import parse_task_ref
 from ._task_loader import TaskLoader
 from ._utils import (
     find_next_root_task_id,
-    generate_slug,
     get_next_subtask_id,
     update_parents_status,
     upgrade_to_filebased,

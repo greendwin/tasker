@@ -33,6 +33,16 @@ def test_edit_details_on_file_task(s1: str) -> None:
     assert parsed.task.description == "New details"
 
 
+def test_edit_details_capitalizes_first_letter(s1: str) -> None:
+    t01 = add_subtask(s1, "Task A", details="old details").task_id
+    assert_invoke(app, ["edit", t01, "--details", "new description"])
+
+    story_dir = next(Path("planning").glob(f"{s1}-*/"))
+    task_file = next(story_dir.glob(f"{t01}-*.md"))
+    parsed = parse_task_file(task_file)
+    assert parsed.task.description == "New description"
+
+
 def test_edit_details_on_root_task(s1: str) -> None:
     assert_invoke(app, ["edit", s1, "--details", "Root description"])
 
@@ -118,6 +128,25 @@ def test_edit_slug_removes_old_file(s1: str) -> None:
 
     assert_invoke(app, ["edit", t01, "--slug", "renamed"])
     assert not old_path.exists()
+
+
+def test_edit_slug_upgrades_inline_task_and_parent(s1: str) -> None:
+    t01 = add_subtask(s1, "Inline task").task_id
+
+    # before: parent is a basic .md file
+    old_file = next(Path("planning").glob(f"{s1}-*.md"))
+    assert old_file.is_file()
+
+    assert_invoke(app, ["edit", t01, "--slug", "custom-slug"])
+
+    # after: parent upgraded to extended (directory with README.md)
+    story_dir = next(Path("planning").glob(f"{s1}-*/"))
+    assert story_dir.is_dir()
+    assert (story_dir / "README.md").exists()
+
+    # child is now file-backed with the custom slug
+    task_file = next(story_dir.glob(f"{t01}-custom-slug.md"))
+    assert task_file.exists()
 
 
 # ---------------------------------------------------------------------------
