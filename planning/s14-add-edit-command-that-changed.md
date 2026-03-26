@@ -1,5 +1,5 @@
 ---
-id: s03t03
+id: s14
 status: pending
 ---
 
@@ -7,6 +7,6 @@ status: pending
 
 ## Subtasks
 
-- [ ] s03t0301: Edit details
-- [ ] s03t0302: Edit title
-- [ ] s03t0303: Edit slug
+- [ ] s14t01: Edit details
+- [ ] s14t02: Edit title
+- [ ] s14t03: Edit slug

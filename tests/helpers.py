@@ -18,7 +18,7 @@ def assert_invoke(
     expect_error: bool = False,
     input: str | None = None,
 ) -> Result:
-    result = _runner.invoke(app, args, input=input)
+    result = _runner.invoke(app, args, input=input, catch_exceptions=False)
     if expect_error:
         if result.exit_code == 0:
             raise AssertionError(

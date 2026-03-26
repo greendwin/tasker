@@ -4,7 +4,12 @@ import pytest
 
 from tasker.exceptions import TaskerError
 from tasker.render import build_task_file_path
-from tasker.task_repo import TaskRepo, generate_slug
+from tasker.repo import (
+    TaskRepo,
+    find_next_root_task_id,
+    generate_slug,
+    get_next_subtask_id,
+)
 
 from .helpers import add_subtask, create_task
 
@@ -24,22 +29,22 @@ def make_repo() -> TaskRepo:
     return TaskRepo(_tasker_root())
 
 
-# --- next_child_id(None) → next story ID ---
+# --- find_next_root_task_id → next story ID ---
 
 
 def test_next_child_id_none_empty_dir() -> None:
     repo = make_repo()
-    assert repo._next_child_id(None) == "s01"
+    assert find_next_root_task_id(repo.loader) == "s01"
 
 
 def test_next_child_id_none_with_existing_stories() -> None:
     create_task("First story")
     create_task("Second story")
     repo = make_repo()
-    assert repo._next_child_id(None) == "s03"
+    assert find_next_root_task_id(repo.loader) == "s03"
 
 
-# --- next_child_id(task_ref) → next subtask ID ---
+# --- get_next_subtask_id(task_ref) → next subtask ID ---
 
 
 def test_next_child_id_story_no_subtasks() -> None:
@@ -47,7 +52,7 @@ def test_next_child_id_story_no_subtasks() -> None:
     repo = make_repo()
     task = repo.resolve_ref(story_id)
     assert not task.is_inline
-    assert repo._next_child_id(task) == f"{story_id}t01"
+    assert get_next_subtask_id(task) == f"{story_id}t01"
 
 
 def test_next_child_id_story_with_subtasks() -> None:
@@ -57,7 +62,7 @@ def test_next_child_id_story_with_subtasks() -> None:
     repo = make_repo()
     task = repo.resolve_ref(story_id)
     assert not task.is_inline
-    assert repo._next_child_id(task) == f"{story_id}t03"
+    assert get_next_subtask_id(task) == f"{story_id}t03"
 
 
 def test_next_child_id_accepts_slug_ref() -> None:
@@ -67,7 +72,7 @@ def test_next_child_id_accepts_slug_ref() -> None:
     repo = make_repo()
     task = repo.resolve_ref(slug_ref)
     assert not task.is_inline
-    assert repo._next_child_id(task) == f"{story_id}t01"
+    assert get_next_subtask_id(task) == f"{story_id}t01"
 
 
 def test_add_subtask_upgrades_inline_parent() -> None:

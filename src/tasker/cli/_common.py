@@ -6,7 +6,7 @@ from typer_di import TyperDI
 
 from tasker.base_types import Task
 from tasker.exceptions import TaskArchivedError
-from tasker.task_repo import TaskRepo
+from tasker.repo import TaskRepo
 from tasker.utils import console
 
 app = TyperDI(
