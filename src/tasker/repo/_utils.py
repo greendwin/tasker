@@ -9,7 +9,6 @@ from tasker.parse import parse_task_ref
 
 if TYPE_CHECKING:
     from ._task_loader import TaskLoader
-    from ._task_repo import TaskRepo
 
 
 def generate_slug(title: str) -> str:
@@ -17,8 +16,10 @@ def generate_slug(title: str) -> str:
     return "-".join(words)
 
 
-def find_next_root_task_id(root: Path, archive_root: Path) -> str:
-    existing = _scan_root_task_nums(root) + _scan_root_task_nums(archive_root)
+def find_next_root_task_id(loader: TaskLoader) -> str:
+    existing = _scan_root_task_nums(loader.root) + _scan_root_task_nums(
+        loader.archive_root
+    )
     return f"s{max(existing, default=0) + 1:02d}"
 
 
@@ -44,7 +45,7 @@ def get_next_subtask_id(parent: Task) -> str:
 
 def get_status_from_subtasks(task: Task) -> TaskStatus:
     if not task.subtasks:
-        # no subtasks -- kepp status same
+        # no subtasks -- keep status unchanged
         return task.status
 
     if all(t.is_closed for t in task.subtasks):
@@ -56,36 +57,23 @@ def get_status_from_subtasks(task: Task) -> TaskStatus:
     return TaskStatus.PENDING
 
 
-def invalidate_task_flags(root: Task) -> None:
-    if root.is_inline:
-        return
-
-    for child in root.subtasks:
-        invalidate_task_flags(child)
-
-    # update root itself
-    root.status = get_status_from_subtasks(root)
-    root.extended = root.extended or has_file_subtasks(root)
-
-
 def has_file_subtasks(task: Task) -> bool:
     return any(not s.is_inline for s in task.subtasks)
 
 
-def update_parents_status(task: Task, *, repo: TaskRepo) -> None:
+def update_parents_status(
+    task: Task, *, loader: TaskLoader, update_itself: bool = False
+) -> None:
+    if update_itself:
+        task.status = get_status_from_subtasks(task)
+        task.extended = task.extended or has_file_subtasks(task)
+
     cur_id = task.id
     while not is_root_task_id(cur_id):
         ri = parse_task_ref(cur_id)
-        parent = repo.resolve_ref(ri.parent_id)
+        parent = loader.resolve_ref(ri.parent_id)
 
         assert not parent.is_inline
         parent.status = get_status_from_subtasks(parent)
         parent.extended = parent.extended or has_file_subtasks(parent)
         cur_id = parent.id
-
-
-def next_child_id(parent: Task | None, *, loader: TaskLoader) -> str:
-    if parent is None:
-        return find_next_root_task_id(loader.root, loader.archive_root)
-
-    return get_next_subtask_id(parent)

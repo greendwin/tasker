@@ -6,27 +6,28 @@ from tasker.exceptions import TaskHasSubtasksError
 from ._archive_task import archive_task_impl, unarchive_task_impl
 from ._move_task import TaskRename, move_task_impl
 from ._task_loader import TaskLoader
-from ._utils import generate_slug, next_child_id, update_parents_status
+from ._utils import (
+    find_next_root_task_id,
+    generate_slug,
+    get_next_subtask_id,
+    update_parents_status,
+)
 
 
 class TaskRepo:
     def __init__(self, root: Path) -> None:
-        self._loader = TaskLoader(root)
+        self.loader = TaskLoader(root)
 
     @property
     def root(self) -> Path:
-        return self._loader.root
+        return self.loader.root
 
     @property
     def archive_root(self) -> Path:
-        return self._loader.archive_root
-
-    @property
-    def loader(self) -> TaskLoader:
-        return self._loader
+        return self.loader.archive_root
 
     def resolve_ref(self, task_ref: str) -> Task:
-        return self._loader.resolve_ref(task_ref)
+        return self.loader.resolve_ref(task_ref)
 
     def create_root_task(
         self,
@@ -37,7 +38,7 @@ class TaskRepo:
         extended: bool,
     ) -> Task:
         title = title[:1].upper() + title[1:]
-        root_id = next_child_id(None, loader=self._loader)
+        root_id = find_next_root_task_id(self.loader)
 
         if slug is None:
             slug = generate_slug(title)
@@ -50,7 +51,7 @@ class TaskRepo:
             description=description,
         )
 
-        self._loader.register_task(task, original=None)  # new task, no original
+        self.loader.register_task(task, original=None)  # new task, no original
 
         return task
 
@@ -68,7 +69,7 @@ class TaskRepo:
             # upgrade inline task to basic (file-backed) form
             parent.slug = generate_slug(parent.title)
 
-        child_id = next_child_id(parent, loader=self._loader)
+        child_id = get_next_subtask_id(parent)
 
         if description is not None and slug is None:
             # generate slug (i.e. with description task cannot be inline)
@@ -82,9 +83,9 @@ class TaskRepo:
         )
 
         parent.subtasks.append(subtask)
-        update_parents_status(subtask, repo=self)
+        update_parents_status(subtask, loader=self.loader)
 
-        self._loader.register_task(subtask, original=None)
+        self.loader.register_task(subtask, original=None)
 
         return subtask
 
@@ -93,19 +94,19 @@ class TaskRepo:
             raise TaskHasSubtasksError(task)
 
         task.status = TaskStatus.IN_PROGRESS
-        update_parents_status(task, repo=self)
+        update_parents_status(task, loader=self.loader)
 
     def reset_task(self, task: Task) -> None:
         if not _is_leaf_task(task):
             raise TaskHasSubtasksError(task)
 
         task.status = TaskStatus.PENDING
-        update_parents_status(task, repo=self)
+        update_parents_status(task, loader=self.loader)
 
     def cancel_task(self, task: Task, *, force: bool = False) -> list[Task] | None:
         if _is_leaf_task(task):
             task.status = TaskStatus.CANCELLED
-            update_parents_status(task, repo=self)
+            update_parents_status(task, loader=self.loader)
             return None
 
         if not force:
@@ -113,13 +114,13 @@ class TaskRepo:
 
         closed_tasks: list[Task] = []
         _close_recursive(task, TaskStatus.CANCELLED, closed_tasks)
-        update_parents_status(task, repo=self)
+        update_parents_status(task, loader=self.loader)
         return closed_tasks[1:]  # don't include root task
 
     def finish_task(self, task: Task, *, force: bool = False) -> list[Task] | None:
         if _is_leaf_task(task):
             task.status = TaskStatus.DONE
-            update_parents_status(task, repo=self)
+            update_parents_status(task, loader=self.loader)
             return None
 
         if not force:
@@ -127,7 +128,7 @@ class TaskRepo:
 
         closed_tasks: list[Task] = []
         _close_recursive(task, TaskStatus.DONE, closed_tasks)
-        update_parents_status(task, repo=self)
+        update_parents_status(task, loader=self.loader)
         return closed_tasks[1:]  # don't include root task
 
     def archive_task(self, task: Task, *, force: bool = False) -> list[Task] | None:
@@ -136,16 +137,15 @@ class TaskRepo:
     def unarchive_task(self, task_ref: str) -> str:
         return unarchive_task_impl(self, task_ref)
 
-    def move_task(
-        self,
-        task: Task,
-        *,
-        new_parent: Task | None,
-    ) -> list[TaskRename]:
-        return move_task_impl(self, task, new_parent=new_parent)
+    def move_task(self, task: Task, *, new_parent: Task | None) -> list[TaskRename]:
+        return move_task_impl(
+            task,
+            new_parent=new_parent,
+            loader=self.loader,
+        )
 
     def flush_to_disk(self) -> None:
-        self._loader.flush_to_disk()
+        self.loader.flush_to_disk()
 
 
 def _is_leaf_task(task: Task) -> bool:

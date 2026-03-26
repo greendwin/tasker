@@ -146,6 +146,24 @@ def test_old_extended_dir_removed_after_move(s1: str, s2: str) -> None:
     assert not old_dir.exists()
 
 
+def test_old_extended_dir_with_user_data_not_removed(s1: str, s2: str) -> None:
+    t01 = add_subtask(s1, "Container", details="Details").task_id
+    add_subtask(t01, "Child", details="Child details")
+    story_dir = next(Path("planning").glob(f"{s1}-*/"))
+    old_dir = next(story_dir.glob(f"{t01}-*/"))
+
+    # place a non-task file inside the extended directory
+    user_file = old_dir / "notes.txt"
+    user_file.write_text("user notes")
+
+    result = assert_invoke(app, ["move", t01, "--parent", s2], expect_error=True)
+    assert "non-task files" in result.output
+
+    # user data must still be there
+    assert user_file.exists()
+    assert user_file.read_text() == "user notes"
+
+
 def test_new_file_created_after_move(s1: str, s2: str) -> None:
     t01 = add_subtask(s1, "Task A", details="Details").task_id
     assert_invoke(app, ["move", t01, "--parent", s2])

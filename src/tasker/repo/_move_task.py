@@ -1,23 +1,18 @@
 from __future__ import annotations
 
-import shutil
-from pathlib import Path
-from typing import TYPE_CHECKING, NamedTuple
+from typing import NamedTuple
 
 from tasker.base_types import Task, is_root_task_id
 from tasker.exceptions import TaskValidateError
 from tasker.parse import parse_task_ref
 
+from ._task_loader import TaskLoader
 from ._utils import (
+    find_next_root_task_id,
     generate_slug,
-    get_status_from_subtasks,
-    has_file_subtasks,
-    next_child_id,
+    get_next_subtask_id,
     update_parents_status,
 )
-
-if TYPE_CHECKING:
-    from ._task_repo import TaskRepo
 
 
 class TaskRename(NamedTuple):
@@ -26,132 +21,103 @@ class TaskRename(NamedTuple):
 
 
 def move_task_impl(
-    repo: TaskRepo,
-    task: Task,
-    *,
-    new_parent: Task | None,
+    task: Task, *, new_parent: Task | None, loader: TaskLoader
 ) -> list[TaskRename]:
     if new_parent is None:
-        if is_root_task_id(task.id):
-            # already a root task
-            return []
-    else:
-        if new_parent.id == task.id:
-            raise TaskValidateError(
-                f"Cannot move {task.id!r} under itself.",
-                task_ref=task.id,
-            )
+        return _convert_to_root(task, loader=loader)
 
-        ref = parse_task_ref(task.id)
-        if ref.parent_id == new_parent.id:
-            # already under target parent
-            return []
+    if new_parent.id == task.id:
+        raise TaskValidateError(
+            f"Cannot move {task.id!r} under itself.",
+            task_ref=task.id,
+        )
 
-        if _is_descendant_of(new_parent.id, task.id):
-            raise TaskValidateError(
-                f"Cannot move {task.id!r} under its descendant {new_parent.id!r}.",
-                task_ref=task.id,
-            )
+    ref = parse_task_ref(task.id)
+    if ref.parent_id == new_parent.id:
+        # already under target parent
+        return []
 
-    # --- collect old file paths before any mutation ---
-    old_paths = _collect_task_paths(repo, task)
+    if _is_descendant_of(new_parent.id, ancestor_id=task.id):
+        raise TaskValidateError(
+            f"Cannot move {task.id!r} under its descendant {new_parent.id!r}.",
+            task_ref=task.id,
+        )
 
-    # --- detach from current parent ---
-    _detach_task(repo, task)
+    # detach from prev parent
+    _detach_from_parent(task, loader=loader)
 
-    # --- compute new ID and re-ID subtree ---
-    new_id = next_child_id(new_parent, loader=repo.loader)
-    renames = _reassign_ids(repo, task, new_id)
+    # upgrade new parent if needed
+    if new_parent.is_inline:
+        new_parent.slug = generate_slug(new_parent.title)
 
-    # ensure task is file-backed (root tasks and subtasks under a parent
-    # that will be flushed both need a slug)
-    if task.slug is None:
-        task.slug = generate_slug(task.title)
+    renames: list[TaskRename] = []
 
-    # --- attach to new location ---
-    if new_parent is None:
-        repo._root_tasks[task.id] = task
-    else:
-        if new_parent.is_inline:
-            new_parent.slug = generate_slug(new_parent.title)
-        new_parent.subtasks.append(task)
-        update_parents_status(task, repo=repo)
+    prev_id = task.id
+    task.id = get_next_subtask_id(new_parent)
+    _reregister_tree(task, prev_id, renames, loader=loader)
 
-    # --- persist ---
-    repo.flush_to_disk()
+    new_parent.subtasks.append(task)
+    update_parents_status(task, loader=loader)
 
-    # --- remove old files ---
-    for path in old_paths:
-        if path.is_dir():
-            shutil.rmtree(path)
-        elif path.is_file():
-            path.unlink()
+    loader.flush_to_disk()
 
     return renames
 
 
-def _is_descendant_of(child_id: str, ancestor_id: str) -> bool:
+def _is_descendant_of(child_id: str, *, ancestor_id: str) -> bool:
     """True when *child_id* is a strict descendant of *ancestor_id*."""
     prefix = ancestor_id if "t" in ancestor_id else ancestor_id + "t"
     return child_id.startswith(prefix) and len(child_id) > len(ancestor_id)
 
 
-def _collect_task_paths(repo: TaskRepo, task: Task) -> list[Path]:
-    if task.is_inline:
-        return []
-    container = _get_container_path(repo, task.id)
-    if task.extended:
-        return [container / task.ref]
-    return [container / f"{task.ref}.md"]
-
-
-def _get_container_path(repo: TaskRepo, task_id: str) -> Path:
-    if is_root_task_id(task_id):
-        return repo.root
-    ref = parse_task_ref(task_id)
-    parent = repo._tasks[ref.parent_id]
-    return _get_container_path(repo, ref.parent_id) / parent.ref
-
-
-def _detach_task(repo: TaskRepo, task: Task) -> None:
+def _convert_to_root(task: Task, *, loader: TaskLoader) -> list[TaskRename]:
     if is_root_task_id(task.id):
-        del repo._root_tasks[task.id]
-        return
+        # already a root task
+        return []
 
-    ref = parse_task_ref(task.id)
-    parent = repo._tasks[ref.parent_id]
-    parent.subtasks = [s for s in parent.subtasks if s.id != task.id]
+    _detach_from_parent(task, loader=loader)
 
-    # refresh old parent + ancestors
-    parent.status = get_status_from_subtasks(parent)
-    parent.extended = parent.extended or has_file_subtasks(parent)
-    cur_id = parent.id
-    while not is_root_task_id(cur_id):
-        ri = parse_task_ref(cur_id)
-        ancestor = repo._tasks[ri.parent_id]
-        ancestor.status = get_status_from_subtasks(ancestor)
-        ancestor.extended = ancestor.extended or has_file_subtasks(ancestor)
-        cur_id = ancestor.id
-
-
-def _reassign_ids(repo: TaskRepo, task: Task, new_id: str) -> list[TaskRename]:
+    # regenerate new ids
     renames: list[TaskRename] = []
 
-    old_child_prefix = task.id if "t" in task.id else task.id + "t"
-    new_child_prefix = new_id if "t" in new_id else new_id + "t"
+    prev_id = task.id
+    task.id = find_next_root_task_id(loader)
+    _reregister_tree(task, prev_id, renames, loader=loader)
 
-    old_id = task.id
-    repo._tasks.pop(old_id, None)
-    repo._disk_state.pop(old_id, None)
-
-    task.id = new_id
-    repo._tasks[new_id] = task
-    renames.append(TaskRename(old_id=old_id, new_id=new_id))
-
-    for subtask in task.subtasks:
-        old_child_id = subtask.id
-        suffix = old_child_id[len(old_child_prefix) :]
-        new_child_id = new_child_prefix + suffix
-        renames.extend(_reassign_ids(repo, subtask, new_child_id))
+    loader.flush_to_disk()
 
     return renames
+
+
+def _detach_from_parent(task: Task, *, loader: TaskLoader) -> None:
+    if is_root_task_id(task.id):
+        # already detached
+        return
+
+    # detach from parent
+    ref = parse_task_ref(task.ref)
+    parent = loader.resolve_ref(ref.parent_id)
+
+    assert task in parent.subtasks
+    parent.subtasks.remove(task)
+    update_parents_status(parent, update_itself=True, loader=loader)
+
+
+def _reregister_tree(
+    task: Task, prev_id: str, renames: list[TaskRename], *, loader: TaskLoader
+) -> None:
+    loader.reregister_task(task, prev_id=prev_id)
+    renames.append(TaskRename(prev_id, task.id))
+
+    for child in task.subtasks:
+        prev_child_id = child.id
+        child.id = _replace_parent_id(child.id, new_parent_id=task.id)
+        _reregister_tree(child, prev_child_id, renames, loader=loader)
+
+
+def _replace_parent_id(task_id: str, *, new_parent_id: str) -> str:
+    # Take the task's own 2-digit suffix and append it to the new parent's
+    # child prefix.
+    own_suffix = task_id[-2:]
+    child_prefix = new_parent_id if "t" in new_parent_id else new_parent_id + "t"
+    return child_prefix + own_suffix

@@ -5,7 +5,8 @@ from tasker.base_types import Task, is_root_task_id
 from tasker.exceptions import TaskArchivedError, TaskValidateError
 from tasker.parse import ParsedSubtask, detect_task_type, parse_task, parse_task_ref
 from tasker.render import build_task_file_path, render_task, write_task_file
-from tasker.repo._utils import invalidate_task_flags
+
+from ._utils import get_status_from_subtasks, has_file_subtasks
 
 _ARCHIVE_DIR = "archive"
 
@@ -25,16 +26,6 @@ class TaskLoader:
         self._tasks: dict[str, Task] = {}
         self._original_state: dict[str, OriginalState] = {}
 
-    def register_task(self, task: Task, original: OriginalState | None) -> None:
-        assert task.id not in self._tasks, "task is already registered"
-
-        if is_root_task_id(task.id):
-            self._root_tasks[task.id] = task
-        self._tasks[task.id] = task
-
-        if original:
-            self._original_state[task.id] = original
-
     def resolve_ref(self, task_ref: str) -> Task:
         ti = parse_task_ref(task_ref)
 
@@ -48,6 +39,32 @@ class TaskLoader:
             )
 
         return task
+
+    def register_task(self, task: Task, original: OriginalState | None) -> None:
+        assert task.id not in self._tasks, "task is already registered"
+
+        if is_root_task_id(task.id):
+            self._root_tasks[task.id] = task
+        self._tasks[task.id] = task
+
+        if original:
+            self._original_state[task.id] = original
+
+    def reregister_task(self, task: Task, prev_id: str) -> None:
+        assert prev_id in self._tasks, f"task {prev_id!r} is not registered"
+        assert task.id not in self._tasks, f"task {task.id!r} is already registered"
+
+        del self._tasks[prev_id]
+        self._tasks[task.id] = task
+
+        if prev_id in self._root_tasks:
+            del self._root_tasks[prev_id]
+        if is_root_task_id(task.id):
+            self._root_tasks[task.id] = task
+
+        orig = self._original_state.pop(prev_id, None)
+        if orig is not None:
+            self._original_state[task.id] = orig
 
     def flush_to_disk(self) -> None:
         for task in self._root_tasks.values():
@@ -75,15 +92,39 @@ class TaskLoader:
                 extended=task.extended,
             )
 
-        if orig and new_filename != orig.filename:
-            # remove old filename
-            if orig.filename.exists():
-                orig.filename.unlink()
-
         # recursively flush file-backed subtasks
         subtask_root = root / task.ref
         for child in task.subtasks:
             self._flush_task(subtask_root, child)
+
+        if orig is None or new_filename == orig.filename:
+            # if new or same file - don't need to delete anything
+            return
+
+        # remove old filename
+        if orig.filename.exists():
+            orig.filename.unlink()
+
+        if not orig.extended:
+            return
+
+        # for extended tasks, remove the old directory if it's now empty
+        old_dir = orig.filename.parent
+        if not old_dir.exists():
+            return
+
+        if not _is_empty_dir(old_dir):
+            raise TaskValidateError(
+                f"Old task directory {old_dir.name!r} contains"
+                f" non-task files and cannot be removed automatically",
+                task_ref=task.id,
+            )
+
+        old_dir.rmdir()
+
+
+def _is_empty_dir(path: Path) -> bool:
+    return next(path.iterdir(), None) is None
 
 
 def _load_task_tree(
@@ -132,7 +173,7 @@ def _load_task_tree(
         )
         root.subtasks.append(child)
 
-    invalidate_task_flags(root)
+    _invalidate_task_flags(root)
 
 
 def _load_subtask(root: Path, task_info: ParsedSubtask, *, loader: TaskLoader) -> Task:
@@ -173,3 +214,16 @@ def _load_subtask(root: Path, task_info: ParsedSubtask, *, loader: TaskLoader) -
         task.subtasks.append(child)
 
     return task
+
+
+def _invalidate_task_flags(task: Task) -> None:
+    if task.is_inline:
+        assert not task.extended
+        return
+
+    for child in task.subtasks:
+        _invalidate_task_flags(child)
+
+    # update root itself
+    task.status = get_status_from_subtasks(task)
+    task.extended = task.extended or has_file_subtasks(task)
