@@ -1,0 +1,175 @@
+from dataclasses import dataclass
+from pathlib import Path
+
+from tasker.base_types import Task, is_root_task_id
+from tasker.exceptions import TaskArchivedError, TaskValidateError
+from tasker.parse import ParsedSubtask, detect_task_type, parse_task, parse_task_ref
+from tasker.render import build_task_file_path, render_task, write_task_file
+from tasker.repo._utils import invalidate_task_flags
+
+_ARCHIVE_DIR = "archive"
+
+
+@dataclass
+class OriginalState:
+    filename: Path
+    content: str
+    extended: bool
+
+
+class TaskLoader:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.archive_root = root / _ARCHIVE_DIR
+        self._root_tasks: dict[str, Task] = {}
+        self._tasks: dict[str, Task] = {}
+        self._original_state: dict[str, OriginalState] = {}
+
+    def register_task(self, task: Task, original: OriginalState | None) -> None:
+        assert task.id not in self._tasks, "task is already registered"
+
+        if is_root_task_id(task.id):
+            self._root_tasks[task.id] = task
+        self._tasks[task.id] = task
+
+        if original:
+            self._original_state[task.id] = original
+
+    def resolve_ref(self, task_ref: str) -> Task:
+        ti = parse_task_ref(task_ref)
+
+        if ti.root_id not in self._root_tasks:
+            _load_task_tree(ti.root_id, loader=self)
+
+        task = self._tasks.get(ti.task_id)
+        if task is None:
+            raise TaskValidateError(
+                f"Cannot resolve task reference {task_ref!r}", task_ref=task_ref
+            )
+
+        return task
+
+    def flush_to_disk(self) -> None:
+        for task in self._root_tasks.values():
+            self._flush_task(self.root, task)
+
+    def _flush_task(self, root: Path, task: Task) -> None:
+        if task.is_inline:
+            orig = self._original_state.pop(task.id, None)
+            if orig and orig.filename.exists():
+                # task was converted to inline
+                orig.filename.unlink()
+            return
+
+        rendered = render_task(task)
+        orig = self._original_state.get(task.id)
+
+        new_filename = build_task_file_path(root, task.ref, task.extended)
+
+        if orig is None or new_filename != orig.filename or rendered != orig.content:
+            write_task_file(root, task, content=rendered)
+
+            self._original_state[task.id] = OriginalState(
+                filename=new_filename,
+                content=rendered,
+                extended=task.extended,
+            )
+
+        if orig and new_filename != orig.filename:
+            # remove old filename
+            if orig.filename.exists():
+                orig.filename.unlink()
+
+        # recursively flush file-backed subtasks
+        subtask_root = root / task.ref
+        for child in task.subtasks:
+            self._flush_task(subtask_root, child)
+
+
+def _load_task_tree(
+    root_id: str,
+    *,
+    loader: TaskLoader,
+) -> None:
+    candidates = list(loader.root.glob(f"{root_id}-*"))
+    if not candidates:
+        if any(loader.archive_root.glob(f"{root_id}-*")):
+            raise TaskArchivedError(root_id)
+        raise TaskValidateError(f"Task {root_id!r} not found", task_ref=root_id)
+
+    if len(candidates) > 1:
+        names = ", ".join(p.name for p in candidates)
+        raise TaskValidateError(
+            f"Ambiguous task {root_id!r}: multiple files match: {names}",
+            task_ref=root_id,
+        )
+
+    tt = detect_task_type(candidates[0])
+    assert tt.task_id == root_id
+
+    content = tt.content_path.read_text(encoding="utf-8")
+
+    root, subtasks = parse_task(
+        content,
+        task_id=tt.task_id,
+        slug=tt.slug,
+        extended=tt.extended,
+    )
+
+    assert root_id == root.id
+    orig_info = OriginalState(
+        filename=tt.content_path,
+        content=content,
+        extended=tt.extended,
+    )
+    loader.register_task(root, orig_info)
+
+    for child_info in subtasks:
+        child = _load_subtask(
+            loader.root / root.ref,
+            child_info,
+            loader=loader,
+        )
+        root.subtasks.append(child)
+
+    invalidate_task_flags(root)
+
+
+def _load_subtask(root: Path, task_info: ParsedSubtask, *, loader: TaskLoader) -> Task:
+    if task_info.slug is None:
+        # inline task cannot be extended
+        assert not task_info.extended
+        task = Task(
+            id=task_info.id,
+            title=task_info.title,
+            status=task_info.status,
+            slug=task_info.slug,
+            extended=task_info.extended,
+        )
+
+        assert task.is_inline
+        loader.register_task(task, original=None)  # no original source for inline tasks
+        return task
+
+    original_path = build_task_file_path(root, task_info.ref, task_info.extended)
+    content = original_path.read_text("utf-8")
+
+    task, subtasks = parse_task(
+        content,
+        task_id=task_info.id,
+        slug=task_info.slug,
+        extended=task_info.extended,
+    )
+
+    orig_info = OriginalState(
+        filename=original_path,
+        content=content,
+        extended=task_info.extended,
+    )
+    loader.register_task(task, orig_info)
+
+    for child_info in subtasks:
+        child = _load_subtask(root / task.ref, child_info, loader=loader)
+        task.subtasks.append(child)
+
+    return task

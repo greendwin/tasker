@@ -8,6 +8,7 @@ from tasker.base_types import Task, TaskStatus, is_root_task_id
 from tasker.parse import parse_task_ref
 
 if TYPE_CHECKING:
+    from ._task_loader import TaskLoader
     from ._task_repo import TaskRepo
 
 
@@ -81,3 +82,10 @@ def update_parents_status(task: Task, *, repo: TaskRepo) -> None:
         parent.status = get_status_from_subtasks(parent)
         parent.extended = parent.extended or has_file_subtasks(parent)
         cur_id = parent.id
+
+
+def next_child_id(parent: Task | None, *, loader: TaskLoader) -> str:
+    if parent is None:
+        return find_next_root_task_id(loader.root, loader.archive_root)
+
+    return get_next_subtask_id(parent)

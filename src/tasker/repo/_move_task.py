@@ -12,6 +12,7 @@ from ._utils import (
     generate_slug,
     get_status_from_subtasks,
     has_file_subtasks,
+    next_child_id,
     update_parents_status,
 )
 
@@ -59,7 +60,7 @@ def move_task_impl(
     _detach_task(repo, task)
 
     # --- compute new ID and re-ID subtree ---
-    new_id = repo._next_child_id(new_parent)
+    new_id = next_child_id(new_parent, loader=repo.loader)
     renames = _reassign_ids(repo, task, new_id)
 
     # ensure task is file-backed (root tasks and subtasks under a parent

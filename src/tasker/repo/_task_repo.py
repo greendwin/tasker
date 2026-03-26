@@ -1,51 +1,32 @@
-from dataclasses import dataclass
 from pathlib import Path
 
 from tasker.base_types import Task, TaskStatus
-from tasker.exceptions import TaskArchivedError, TaskHasSubtasksError, TaskValidateError
-from tasker.parse import ParsedSubtask, detect_task_type, parse_task, parse_task_ref
-from tasker.render import build_task_file_path, render_task, write_task_file
+from tasker.exceptions import TaskHasSubtasksError
 
 from ._archive_task import archive_task_impl, unarchive_task_impl
 from ._move_task import TaskRename, move_task_impl
-from ._utils import (
-    find_next_root_task_id,
-    generate_slug,
-    get_next_subtask_id,
-    invalidate_task_flags,
-    update_parents_status,
-)
-
-_ARCHIVE_DIR = "archive"
-
-
-@dataclass
-class _DiskState:
-    content: str
-    extended: bool
+from ._task_loader import TaskLoader
+from ._utils import generate_slug, next_child_id, update_parents_status
 
 
 class TaskRepo:
     def __init__(self, root: Path) -> None:
-        self.root = root
-        self.archive_root = root / _ARCHIVE_DIR
-        self._root_tasks: dict[str, Task] = {}
-        self._tasks: dict[str, Task] = {}
-        self._disk_state: dict[str, _DiskState] = {}
+        self._loader = TaskLoader(root)
+
+    @property
+    def root(self) -> Path:
+        return self._loader.root
+
+    @property
+    def archive_root(self) -> Path:
+        return self._loader.archive_root
+
+    @property
+    def loader(self) -> TaskLoader:
+        return self._loader
 
     def resolve_ref(self, task_ref: str) -> Task:
-        ti = parse_task_ref(task_ref)
-
-        if ti.root_id not in self._root_tasks:
-            self._load_root_task(ti.root_id)
-
-        task = self._tasks.get(ti.task_id)
-        if task is None:
-            raise TaskValidateError(
-                f"Cannot resolve task reference {task_ref!r}", task_ref=task_ref
-            )
-
-        return task
+        return self._loader.resolve_ref(task_ref)
 
     def create_root_task(
         self,
@@ -56,7 +37,7 @@ class TaskRepo:
         extended: bool,
     ) -> Task:
         title = title[:1].upper() + title[1:]
-        root_id = self._next_child_id(None)
+        root_id = next_child_id(None, loader=self._loader)
 
         if slug is None:
             slug = generate_slug(title)
@@ -69,9 +50,7 @@ class TaskRepo:
             description=description,
         )
 
-        self._root_tasks[root_id] = task
-        self._tasks[root_id] = task
-        self._disk_state[root_id] = _DiskState(content="", extended=extended)
+        self._loader.register_task(task, original=None)  # new task, no original
 
         return task
 
@@ -89,7 +68,7 @@ class TaskRepo:
             # upgrade inline task to basic (file-backed) form
             parent.slug = generate_slug(parent.title)
 
-        child_id = self._next_child_id(parent)
+        child_id = next_child_id(parent, loader=self._loader)
 
         if description is not None and slug is None:
             # generate slug (i.e. with description task cannot be inline)
@@ -103,16 +82,11 @@ class TaskRepo:
         )
 
         parent.subtasks.append(subtask)
-        self._tasks[child_id] = subtask
         update_parents_status(subtask, repo=self)
 
+        self._loader.register_task(subtask, original=None)
+
         return subtask
-
-    def _next_child_id(self, parent: Task | None) -> str:
-        if parent is None:
-            return find_next_root_task_id(self.root, self.archive_root)
-
-        return get_next_subtask_id(parent)
 
     def start_task(self, task: Task) -> None:
         if not _is_leaf_task(task):
@@ -171,117 +145,7 @@ class TaskRepo:
         return move_task_impl(self, task, new_parent=new_parent)
 
     def flush_to_disk(self) -> None:
-        for task in self._root_tasks.values():
-            self._flush_task(self.root, task)
-
-    def _flush_task(self, root: Path, task: Task) -> None:
-        rendered = render_task(task)
-        prev = self._disk_state.get(task.id)
-        was_extended = prev.extended if prev else task.extended
-        prev_content = prev.content if prev else ""
-        upgraded = not was_extended and task.extended
-        content_changed = rendered != prev_content
-
-        if upgraded:
-            # upgraded from basic to extended — remove old .md file
-            old_path = root / f"{task.ref}.md"
-            if old_path.exists():
-                old_path.unlink()
-
-        if content_changed or upgraded:
-            write_task_file(root, task, content=rendered)
-            self._disk_state[task.id] = _DiskState(
-                content=rendered, extended=task.extended
-            )
-
-        # recursively flush file-backed subtasks
-        if task.extended:
-            subtask_root = root / task.ref
-            for subtask in task.subtasks:
-                if not subtask.is_inline:
-                    self._flush_task(subtask_root, subtask)
-
-    def _load_root_task(self, root_id: str) -> None:
-        assert root_id not in self._root_tasks
-
-        candidates = list(self.root.glob(f"{root_id}-*"))
-        if not candidates:
-            if any(self.archive_root.glob(f"{root_id}-*")):
-                raise TaskArchivedError(root_id)
-            raise TaskValidateError(f"Task {root_id!r} not found", task_ref=root_id)
-
-        if len(candidates) > 1:
-            names = ", ".join(p.name for p in candidates)
-            raise TaskValidateError(
-                f"Ambiguous task {root_id!r}: multiple files match: {names}",
-                task_ref=root_id,
-            )
-
-        tt = detect_task_type(candidates[0])
-        assert tt.task_id == root_id
-
-        content = tt.content_path.read_text(encoding="utf-8")
-
-        root, subtasks = parse_task(
-            content,
-            task_id=tt.task_id,
-            slug=tt.slug,
-            extended=tt.extended,
-        )
-
-        assert root_id == root.id
-        self._root_tasks[root_id] = root
-        self._tasks[root_id] = root
-        self._disk_state[root_id] = _DiskState(content=content, extended=tt.extended)
-
-        for child_info in subtasks:
-            child = self._load_subtask(
-                self.root / root.ref,
-                child_info,
-            )
-            root.subtasks.append(child)
-
-        invalidate_task_flags(root)
-
-    def _load_subtask(self, root: Path, task_info: ParsedSubtask) -> Task:
-        if task_info.slug is None:
-            # inline task cannot be extended
-            assert not task_info.extended
-            task = Task(
-                id=task_info.id,
-                title=task_info.title,
-                status=task_info.status,
-                slug=task_info.slug,
-                extended=task_info.extended,
-            )
-
-            # register task
-            self._tasks[task.id] = task
-
-            assert task.is_inline
-            return task
-
-        content = build_task_file_path(
-            root, task_info.ref, task_info.extended
-        ).read_text("utf-8")
-
-        task, subtasks = parse_task(
-            content,
-            task_id=task_info.id,
-            slug=task_info.slug,
-            extended=task_info.extended,
-        )
-
-        self._tasks[task.id] = task
-        self._disk_state[task.id] = _DiskState(
-            content=content, extended=task_info.extended
-        )
-
-        for child_info in subtasks:
-            child = self._load_subtask(root / task.ref, child_info)
-            task.subtasks.append(child)
-
-        return task
+        self._loader.flush_to_disk()
 
 
 def _is_leaf_task(task: Task) -> bool:
