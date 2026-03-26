@@ -230,3 +230,37 @@ def test_parse_non_cancelled_subtask_no_strikethrough() -> None:
     _, subtasks = _make_task_with_subtask_line("- [ ] s01t01: My subtask")
     assert subtasks[0].status == TaskStatus.PENDING
     assert subtasks[0].title == "My subtask"
+
+
+# --- managed section validation ---
+
+
+def test_parse_raises_on_unknown_front_matter_field() -> None:
+    _DIR.mkdir(exist_ok=True)
+    bad = _DIR / "s01-my-task.md"
+    bad.write_text("---\nid: s01\nstatus: pending\npriority: high\n---\n\n# My task\n")
+    with pytest.raises(TaskValidateError, match="priority"):
+        parse_task_file(bad)
+
+
+def test_parse_raises_on_invalid_subtask_line() -> None:
+    content = (
+        "---\nid: s01\nstatus: pending\n---\n\n"
+        "# My task\n\n## Subtasks\n\n"
+        "- [ ] s01t01: Valid subtask\n"
+        "Some random text\n"
+    )
+    with pytest.raises(TaskValidateError, match="Invalid subtask line"):
+        parse_task(content, task_id="s01", slug="my-task", extended=False)
+
+
+def test_parse_allows_blank_lines_in_subtasks() -> None:
+    content = (
+        "---\nid: s01\nstatus: pending\n---\n\n"
+        "# My task\n\n## Subtasks\n\n"
+        "- [ ] s01t01: First\n"
+        "\n"
+        "- [ ] s01t02: Second\n"
+    )
+    _, subtasks = parse_task(content, task_id="s01", slug="my-task", extended=False)
+    assert len(subtasks) == 2

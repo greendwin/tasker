@@ -222,6 +222,11 @@ def _parse_content(content: str, *, task_ref: str) -> _ParsedContent:
             id_val = line.split(":", 1)[1].strip()
         elif line.startswith("status:"):
             status = TaskStatus(line.split(":", 1)[1].strip())
+        elif line.strip():
+            key = line.split(":", 1)[0].strip()
+            raise TaskValidateError(
+                f"Unknown front-matter field {key!r}", task_ref=task_ref
+            )
 
     # Body: everything after the closing ---
     body = lines[fm_end + 1 :]
@@ -254,9 +259,15 @@ def _parse_content(content: str, *, task_ref: str) -> _ParsedContent:
     subtasks: list[ParsedSubtask] = []
     if subtasks_idx is not None:
         for line in body[subtasks_idx + 1 :]:
+            if not line.strip():
+                continue
             parsed_sub = _parse_subtask_line(line)
-            if parsed_sub is not None:
-                subtasks.append(parsed_sub)
+            if parsed_sub is None:
+                raise TaskValidateError(
+                    f"Invalid subtask line in '## Subtasks': {line!r}",
+                    task_ref=task_ref,
+                )
+            subtasks.append(parsed_sub)
 
     return _ParsedContent(
         id=id_val,
