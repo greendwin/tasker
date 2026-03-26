@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import Annotated
 
@@ -47,6 +48,9 @@ def resolve_ref(repo: TaskRepo, task_ref: str, *, save_recent: bool = False) -> 
     elif task_ref == "p":
         recent = parse_task_ref(_resolve_recent(repo, task_ref))
         task_ref = recent.parent_id
+    elif m := re.fullmatch(r"p((?:\d{2})+)", task_ref):
+        recent = parse_task_ref(_resolve_recent(repo, task_ref))
+        task_ref = recent.parent_id + "t" + m.group(1)
 
     try:
         task = repo.resolve_ref(task_ref)

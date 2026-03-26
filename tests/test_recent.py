@@ -210,3 +210,50 @@ def test_p_updates_recent_to_parent(s1: str, tasks_root: Path) -> None:
     # 'p' resolves to s01, which is a direct ref — so recent is updated to s01
     assert_invoke(app, ["edit", "p", "--title", "Parent edited via p"])
     assert _read_recent(tasks_root) == s1
+
+
+# ---------------------------------------------------------------------------
+# Resolve 'pNN' / 'pNNNN...' reference
+# ---------------------------------------------------------------------------
+
+
+def test_p_digits_resolves_sibling(s1: str, tasks_root: Path) -> None:
+    t01 = add_subtask(s1, "Task A").task_id
+    add_subtask(s1, "Task B")
+    assert_invoke(app, ["start", t01])  # recent = s01t01
+
+    # p02 -> parent(s01t01)=s01 + t02 -> s01t02
+    assert_invoke(app, ["edit", "p02", "--title", "Sibling edited via p02"])
+
+
+def test_p_digits_resolves_from_nested(tasks_root: Path) -> None:
+    s1 = create_task("Story one").task_id
+    t01 = add_subtask(s1, "Task A", details="d").task_id
+    t0101 = add_subtask(t01, "Sub A1").task_id
+    add_subtask(t01, "Sub A2")
+    assert_invoke(app, ["start", t0101])  # recent = s01t0101
+
+    # p02 -> parent(s01t0101)=s01t01 + t02 -> s01t0102
+    assert_invoke(app, ["edit", "p02", "--title", "Cousin edited via p02"])
+
+
+def test_p_deep_digits_resolves_nested_path(tasks_root: Path) -> None:
+    s1 = create_task("Story one").task_id
+    t01 = add_subtask(s1, "Task A", details="d").task_id
+    add_subtask(t01, "Sub A1")
+    assert_invoke(app, ["edit", t01, "--title", "Set recent"])  # recent = s01t01
+
+    # p0101 -> parent(s01t01)=s01 + t0101 -> s01t0101
+    assert_invoke(app, ["edit", "p0101", "--title", "Deep edited via p0101"])
+
+
+def test_p_digits_errors_when_no_recent(tasks_root: Path) -> None:
+    assert_invoke(app, ["edit", "p01", "--title", "nope"], expect_error=True)
+
+
+def test_p_digits_errors_for_nonexistent_sibling(s1: str, tasks_root: Path) -> None:
+    t01 = add_subtask(s1, "Task A").task_id
+    assert_invoke(app, ["start", t01])  # recent = s01t01
+
+    # p99 -> s01t99 which doesn't exist
+    assert_invoke(app, ["edit", "p99", "--title", "nope"], expect_error=True)

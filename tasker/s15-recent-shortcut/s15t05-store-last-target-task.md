@@ -45,6 +45,6 @@ tasker add p "new task"
 - [x] s15t0503: Store recent to 'tasker/.recent' and add 'tasker/.gitignore' that excludes .recent file
 - [x] s15t0504: When creating .gitignore from scratch - add itself to ignore
 - [x] s15t0505: Resolve 'q' reference
-- [ ] s15t0506: Resolve 'p' reference
+- [x] s15t0506: Resolve 'p' reference
 - [ ] s15t0507: Resolve 'q01', 'q0102...' reference
-- [ ] s15t0508: Resolve 'p01', 'p0102...' reference
+- [x] s15t0508: Resolve 'p01', 'p0102...' reference
