@@ -257,3 +257,47 @@ def test_p_digits_errors_for_nonexistent_sibling(s1: str, tasks_root: Path) -> N
 
     # p99 -> s01t99 which doesn't exist
     assert_invoke(app, ["edit", "p99", "--title", "nope"], expect_error=True)
+
+
+# ---------------------------------------------------------------------------
+# Resolve 'qNN' / 'qNNNN...' reference
+# ---------------------------------------------------------------------------
+
+
+def test_q_digits_resolves_child(s1: str, tasks_root: Path) -> None:
+    t01 = add_subtask(s1, "Task A", details="d").task_id
+    add_subtask(t01, "Sub A1")
+    assert_invoke(app, ["edit", t01, "--title", "Set recent"])  # recent = s01t01
+
+    # q01 -> s01t01 + 01 -> s01t0101
+    assert_invoke(app, ["edit", "q01", "--title", "Child edited via q01"])
+
+
+def test_q_digits_resolves_from_root(tasks_root: Path) -> None:
+    s1 = create_task("Story one").task_id
+    add_subtask(s1, "Task A")
+    # recent = s01 (root)
+    # q01 -> s01 + t01 -> s01t01
+    assert_invoke(app, ["edit", "q01", "--title", "Child of root via q01"])
+
+
+def test_q_deep_digits_resolves_nested(tasks_root: Path) -> None:
+    s1 = create_task("Story one").task_id
+    t01 = add_subtask(s1, "Task A", details="d").task_id
+    add_subtask(t01, "Sub A1")
+    # recent = s01t01 (from add_subtask targeting s01t01)
+    # reset recent to s01 so we can test deep navigation
+    assert_invoke(app, ["edit", s1, "--title", "Set recent to root"])
+    # q0101 -> s01 + t0101 -> s01t0101
+    assert_invoke(app, ["edit", "q0101", "--title", "Deep child via q0101"])
+
+
+def test_q_digits_errors_when_no_recent(tasks_root: Path) -> None:
+    assert_invoke(app, ["edit", "q01", "--title", "nope"], expect_error=True)
+
+
+def test_q_digits_errors_for_nonexistent_child(s1: str, tasks_root: Path) -> None:
+    add_subtask(s1, "Task A")
+    # recent = s01
+    # q99 -> s01t99 which doesn't exist
+    assert_invoke(app, ["edit", "q99", "--title", "nope"], expect_error=True)

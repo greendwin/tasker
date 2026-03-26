@@ -45,6 +45,8 @@ def get_task_repo() -> TaskRepo:
 def resolve_ref(repo: TaskRepo, task_ref: str, *, save_recent: bool = False) -> Task:
     if task_ref == "q":
         task_ref = _resolve_recent(repo, task_ref)
+    elif m := re.fullmatch(r"q((?:\d{2})+)", task_ref):
+        task_ref = make_child_ref(_resolve_recent(repo, task_ref), m.group(1))
     elif task_ref == "p":
         recent = parse_task_ref(_resolve_recent(repo, task_ref))
         task_ref = recent.parent_id

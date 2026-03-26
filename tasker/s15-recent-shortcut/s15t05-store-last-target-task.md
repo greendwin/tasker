@@ -1,6 +1,6 @@
 ---
 id: s15t05
-status: pending
+status: done
 ---
 
 # Store last target task
@@ -46,5 +46,5 @@ tasker add p "new task"
 - [x] s15t0504: When creating .gitignore from scratch - add itself to ignore
 - [x] s15t0505: Resolve 'q' reference
 - [x] s15t0506: Resolve 'p' reference
-- [ ] s15t0507: Resolve 'q01', 'q0102...' reference
+- [x] s15t0507: Resolve 'q01', 'q0102...' reference
 - [x] s15t0508: Resolve 'p01', 'p0102...' reference
