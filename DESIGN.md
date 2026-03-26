@@ -26,6 +26,10 @@ Tasks **auto-upgrade** when structure requires it:
 - Promoting an inline task to have a description → basic form (file created)
 - Adding a subtask with `--details` to a basic task → extended form (dir is created, existing file becomes `README.md`)
 
+Tasks **auto-downgrade** when structure allows it (triggered during `move`):
+- Extended task with no file-based subtasks remaining → basic form (dir collapsed to single file)
+- File-based non-root task with no description, no extra sections, and no subtasks → inline form (file removed, becomes a bullet in parent)
+
 ---
 
 ## Task ID Scheme
@@ -125,11 +129,6 @@ status: pending
 Optional description text.
 Can span multiple paragraphs.
 
-## Depends
-
-- ~~s02~~ - must finish auth before starting this
-- s03 - needs API design finalized first
-
 ## Subtasks
 
 - [ ] s01t01: pending subtask
@@ -144,8 +143,6 @@ Can span multiple paragraphs.
 |---|---|---|
 | `id` | yes | Task ID (e.g. `s01`, `s01t02`) |
 | `status` | yes | One of `pending`, `in-progress`, `done`, `cancelled` |
-
-**`## Depends`** — optional section listing task IDs this task depends on, one per line with an optional comment after the ID. Completed dependencies are rendered with strikethrough (~~`s02`~~) to show they no longer block progress.
 
 | Status value | Meaning |
 |---|---|
@@ -189,6 +186,8 @@ status: in-progress
 
 ## CLI Commands
 
+All commands support `--json-output` for machine-readable output and `--debug` for full tracebacks.
+
 ### Add tasks
 
 ```bash
@@ -197,6 +196,9 @@ tasker new <title>
 
 # Add a root-level story with explicit slug and description
 tasker new <title> --slug <slug> --details <description>
+
+# Create as a directory from the start
+tasker new <title> --extended
 
 # Add a simple inline subtask under any parent
 tasker add <parent-id> <title>
@@ -208,58 +210,85 @@ tasker add <parent-id> <title> --details <description>
 tasker add <parent-id> <title> --details <description> --slug <slug>
 
 # Add multiple inline subtasks interactively (empty line or EOF ends input)
-# In --json-output mode: reads stdin silently, emits { "parent_id": "s01", "task_id": ["s01t01", ...] }
+# In --json-output mode: reads stdin silently, emits { "parent_ref": "s01", "task_refs": ["s01t01", ...] }
 tasker add-many <parent-id>
 ```
 
 ### Update task status
 
+Status commands accept one or more task IDs. Parent tasks with subtasks have their status managed automatically — use `--force` to override.
+
 ```bash
 # Mark in-progress
-tasker start <task-id>
+tasker start <task-id>...
 
 # Mark done (fails if task has open subtasks)
-tasker done <task-id>
+tasker done <task-id>...
 
 # Force close even with open subtasks
 tasker done <task-id> --force
 
 # Cancel a task
-tasker cancel <task-id>
+tasker cancel <task-id>...
 
 # Force cancel all open subtasks
 tasker cancel <task-id> --force
 
 # Reset a task back to pending
-tasker reset <task-id>
+tasker reset <task-id>...
 ```
 
-### List and query
+### Edit tasks
 
 ```bash
-# List all root stories with status summary
-tasker list
+# Change title
+tasker edit <task-id> --title <new-title>
 
-# List subtasks of any task
-tasker list <task-id>
+# Change or add description (auto-upgrades inline task to file-based)
+tasker edit <task-id> --details <new-description>
 
-# Tasks with all dependencies satisfied
-tasker list --ready
-
-# Tasks blocked by unfinished dependencies
-tasker list --blocked
+# Change slug
+tasker edit <task-id> --slug <new-slug>
 ```
+
+### Move tasks
+
+```bash
+# Move a task under a different parent
+tasker move <task-id> --parent <new-parent-id>
+
+# Promote a subtask to a root-level story
+tasker move <task-id> --root
+```
+
+Moving re-generates task IDs to match the new location and prints the rename mapping. Source parents are auto-downgraded when possible.
 
 ### Archive
 
 ```bash
 # Move root story to tasker/archive/
-tasker archive <task-id>
+tasker archive <task-id>     # alias: arch
+
+# Restore an archived story
+tasker unarchive <task-id>   # alias: unarch
 ```
 
 Only root stories can be archived. Archiving a non-root task is an error.
 
 > **TBD:** Archiving of mid-tree tasks may be supported in the future.
+
+### Recent task shortcuts
+
+The last referenced task is saved to `tasker/.recent` (git-ignored). Shortcuts:
+
+| Shortcut | Resolves to | Example |
+|---|---|---|
+| `q` | Last referenced task | If recent is `s01t02`, `q` → `s01t02` |
+| `qNN...` | Descendant of recent | `q0103` → `s01t020103` |
+| `p` | Parent of recent task | If recent is `s01t02`, `p` → `s01` |
+| `pNN...` | Sibling via parent | `p03` → `s01t03` |
+
+These shortcuts work in place of any `<task-id>` argument.
 
 ---
 
