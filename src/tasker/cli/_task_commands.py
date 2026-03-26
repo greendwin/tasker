@@ -20,7 +20,7 @@ def cmd_start_task(
 ) -> None:
     with console.catching_output():
         for task_ref in task_refs:
-            task = resolve_ref(repo, task_ref)
+            task = resolve_ref(repo, task_ref, save_recent=True)
 
             if task.status == TaskStatus.IN_PROGRESS:
                 # resave tasks in case of outdated statuses
@@ -86,7 +86,7 @@ def cmd_reset_task(
 ) -> None:
     with console.catching_output():
         for task_ref in task_refs:
-            task = resolve_ref(repo, task_ref)
+            task = resolve_ref(repo, task_ref, save_recent=True)
 
             if task.status == TaskStatus.PENDING:
                 # resave tasks in case of outdated statuses
@@ -131,7 +131,7 @@ def cmd_cancel_task(
 ) -> None:
     with console.catching_output():
         for task_ref in task_refs:
-            task = resolve_ref(repo, task_ref)
+            task = resolve_ref(repo, task_ref, save_recent=True)
 
             if task.status == TaskStatus.CANCELLED:
                 # resave tasks in case of outdated statuses
@@ -199,7 +199,7 @@ def cmd_done_task(
 ) -> None:
     with console.catching_output():
         for task_ref in task_refs:
-            task = resolve_ref(repo, task_ref)
+            task = resolve_ref(repo, task_ref, save_recent=True)
 
             if task.status == TaskStatus.DONE:
                 # resave tasks in case of outdated statuses
@@ -281,7 +281,7 @@ def cmd_edit_task(
             )
             raise typer.Exit(1)
 
-        task = resolve_ref(repo, task_ref)
+        task = resolve_ref(repo, task_ref, save_recent=True)
 
         repo.edit_task(task, title=title, description=details, slug=slug)
         repo.flush_to_disk()
