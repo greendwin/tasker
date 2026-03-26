@@ -8,7 +8,7 @@ from tasker.exceptions import TaskValidateError
 from tasker.repo import TaskRepo
 from tasker.utils import JsonAppend, console
 
-from ._common import app, get_task_repo, resolve_ref
+from ._common import app, get_task_repo, resolve_ref, save_recent_task
 
 
 @app.command("arch", hidden=True)
@@ -57,11 +57,12 @@ def cmd_unarchive_task(
     repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
-        ref_name = repo.unarchive_task(task_ref)
+        ref = repo.unarchive_task(task_ref)
+        save_recent_task(repo, ref.task_id)
 
         console.print(
-            f"[green]Task [blue]{ref_name}[/blue] unarchived[/green]",
-            json_output={"task_ref": ref_name},
+            f"[green]Task [blue]{ref.task_ref}[/blue] unarchived[/green]",
+            json_output={"task_ref": ref.task_ref},
         )
 
 
@@ -115,6 +116,9 @@ def cmd_move_task(
         task = resolve_ref(repo, task_ref)
         new_parent = resolve_ref(repo, parent_ref) if parent_ref is not None else None
         renames = repo.move_task(task, new_parent=new_parent)
+
+        # save regenerated id
+        save_recent_task(repo, task.id)
 
         if not renames:
             # idempotent — task is already at the requested location

@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import Annotated
 
@@ -5,9 +6,14 @@ import typer
 from typer_di import TyperDI
 
 from tasker.base_types import Task
-from tasker.exceptions import TaskArchivedError
+from tasker.exceptions import TaskArchivedError, TaskValidateError
+from tasker.parse import make_child_ref, parse_task_ref
 from tasker.repo import TaskRepo
 from tasker.utils import console
+
+_RECENT_FILE = ".recent"
+_GITIGNORE_FILE = ".gitignore"
+
 
 app = TyperDI(
     name="tasker",
@@ -31,16 +37,25 @@ def common_options(
 
 
 def get_task_repo() -> TaskRepo:
-    # TODO: this should be `.tasker` or configured using it
-    planning = Path("planning")
-    planning.mkdir(exist_ok=True)
-    return TaskRepo(planning)
+    tasker_dir = Path("tasker")
+    tasker_dir.mkdir(exist_ok=True)
+    return TaskRepo(tasker_dir)
 
 
-def resolve_ref(repo: TaskRepo, task_ref: str) -> Task:
-    """Resolve a task ref, reporting archived tasks in human-friendly format."""
+def resolve_ref(repo: TaskRepo, task_ref: str, *, save_recent: bool = False) -> Task:
+    if task_ref == "q":
+        task_ref = _resolve_recent(repo, task_ref)
+    elif m := re.fullmatch(r"q((?:\d{2})+)", task_ref):
+        task_ref = make_child_ref(_resolve_recent(repo, task_ref), m.group(1))
+    elif task_ref == "p":
+        recent = parse_task_ref(_resolve_recent(repo, task_ref))
+        task_ref = recent.parent_id
+    elif m := re.fullmatch(r"p((?:\d{2})+)", task_ref):
+        recent = parse_task_ref(_resolve_recent(repo, task_ref))
+        task_ref = make_child_ref(recent.parent_id, m.group(1))
+
     try:
-        return repo.resolve_ref(task_ref)
+        task = repo.resolve_ref(task_ref)
     except TaskArchivedError as ex:
         if console.json_output:
             raise
@@ -48,3 +63,42 @@ def resolve_ref(repo: TaskRepo, task_ref: str) -> Task:
         console.print(f"[yellow]Task [blue]{ex.task_ref}[/blue] is archived.[/yellow]")
         console.print("Unarchive it first before performing actions on it.")
         raise typer.Exit(1) from ex
+    else:
+        if save_recent and _is_direct_link(task_ref):
+            save_recent_task(repo, task.id)
+        return task
+
+
+def _is_direct_link(task_ref: str) -> bool:
+    return task_ref.startswith("s")
+
+
+def save_recent_task(repo: TaskRepo, task_id: str) -> None:
+    _ensure_gitignore(repo.root)
+    (repo.root / _RECENT_FILE).write_text(task_id + "\n")
+
+
+def _resolve_recent(repo: TaskRepo, task_ref: str) -> str:
+    path = repo.root / _RECENT_FILE
+    if not path.exists():
+        raise TaskValidateError("Recent task was not set yet", task_ref=task_ref)
+
+    text = path.read_text().strip()
+    if not text:
+        raise TaskValidateError("Recent task was not set yet", task_ref=task_ref)
+    return text
+
+
+def _ensure_gitignore(root: Path) -> None:
+    gitignore = root / _GITIGNORE_FILE
+    if not gitignore.exists():
+        gitignore.write_text(_GITIGNORE_FILE + "\n" + _RECENT_FILE + "\n")
+        return
+
+    content = gitignore.read_text()
+    if _RECENT_FILE in content.splitlines():
+        return
+    if not content.endswith("\n"):
+        content += "\n"
+    content += _RECENT_FILE + "\n"
+    gitignore.write_text(content)

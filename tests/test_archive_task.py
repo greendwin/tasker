@@ -7,6 +7,7 @@ from tasker.base_types import TaskStatus
 from tasker.cli import app
 from tasker.parse import parse_task_file
 
+from .conftest import GetTaskFile
 from .helpers import add_subtask, assert_invoke, create_task
 
 
@@ -30,24 +31,28 @@ def test_archive_cancelled_task(story_id: str) -> None:
     assert "archived" in result.output
 
 
-def test_archive_moves_basic_file_to_archive(story_id: str) -> None:
+def test_archive_moves_basic_file_to_archive(
+    tasks_archive_root: Path, story_id: str, get_task_file: GetTaskFile
+) -> None:
     assert_invoke(app, ["done", "--force", story_id])
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     filename = task_file.name
     assert_invoke(app, ["archive", story_id])
     assert not task_file.exists()
-    assert (Path("planning") / "archive" / filename).exists()
+    assert (tasks_archive_root / filename).exists()
 
 
-def test_archive_moves_extended_dir_to_archive(story_id: str) -> None:
+def test_archive_moves_extended_dir_to_archive(
+    tasks_root: Path, tasks_archive_root: Path, story_id: str
+) -> None:
     add_subtask(story_id, "Subtask", details="Some details")
     assert_invoke(app, ["done", "--force", story_id])
-    story_dir = next(Path("planning").glob(f"{story_id}-*/"))
+    story_dir = next(tasks_root.glob(f"{story_id}-*/"))
     dirname = story_dir.name
     assert_invoke(app, ["archive", story_id])
     assert not story_dir.exists()
-    assert (Path("planning") / "archive" / dirname).is_dir()
-    assert (Path("planning") / "archive" / dirname / "README.md").exists()
+    assert (tasks_archive_root / dirname).is_dir()
+    assert (tasks_archive_root / dirname / "README.md").exists()
 
 
 # --- task must be closed ---
@@ -101,16 +106,20 @@ def test_archive_force_cancels_subtasks(story_id: str) -> None:
     assert t02 in result.output
 
 
-def test_archive_force_moves_file(story_id: str) -> None:
+def test_archive_force_moves_file(
+    tasks_archive_root: Path, story_id: str, get_task_file: GetTaskFile
+) -> None:
     add_subtask(story_id, "Subtask")
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     filename = task_file.name
     assert_invoke(app, ["archive", "--force", story_id])
     assert not task_file.exists()
-    assert (Path("planning") / "archive" / filename).exists()
+    assert (tasks_archive_root / filename).exists()
 
 
-def test_archive_force_preserves_done_subtasks(story_id: str) -> None:
+def test_archive_force_preserves_done_subtasks(
+    tasks_archive_root: Path, story_id: str
+) -> None:
     t01 = add_subtask(story_id, "Done task").task_id
     add_subtask(story_id, "Open task")
     assert_invoke(app, ["done", t01])
@@ -118,7 +127,7 @@ def test_archive_force_preserves_done_subtasks(story_id: str) -> None:
     # only open task was forcibly cancelled
     assert t01 not in result.output
 
-    archived_file = next((Path("planning") / "archive").glob(f"{story_id}-*.md"))
+    archived_file = next((tasks_archive_root).glob(f"{story_id}-*.md"))
     parsed = parse_task_file(archived_file)
     assert parsed.subtasks[0].status == TaskStatus.DONE
     assert parsed.subtasks[1].status == TaskStatus.CANCELLED
@@ -229,27 +238,27 @@ def test_json_archived_task_reports_archived(story_id: str) -> None:
 # --- unarchive command ---
 
 
-def test_unarchive_restores_basic_file(story_id: str) -> None:
+def test_unarchive_restores_basic_file(tasks_root: Path, story_id: str) -> None:
     _archive_story(story_id)
-    task_file = next(Path("planning/archive").glob(f"{story_id}-*.md"))
+    task_file = next(Path("tasker/archive").glob(f"{story_id}-*.md"))
     filename = task_file.name
     result = assert_invoke(app, ["unarchive", story_id])
     assert "unarchived" in result.output
     assert not task_file.exists()
-    assert (Path("planning") / filename).exists()
+    assert (tasks_root / filename).exists()
 
 
-def test_unarchive_restores_extended_dir(story_id: str) -> None:
+def test_unarchive_restores_extended_dir(tasks_root: Path, story_id: str) -> None:
     add_subtask(story_id, "Subtask", details="Some details")
     assert_invoke(app, ["done", "--force", story_id])
     assert_invoke(app, ["archive", story_id])
-    archived_dir = next(Path("planning/archive").glob(f"{story_id}-*/"))
+    archived_dir = next(Path("tasker/archive").glob(f"{story_id}-*/"))
     dirname = archived_dir.name
     result = assert_invoke(app, ["unarchive", story_id])
     assert "unarchived" in result.output
     assert not archived_dir.exists()
-    assert (Path("planning") / dirname).is_dir()
-    assert (Path("planning") / dirname / "README.md").exists()
+    assert (tasks_root / dirname).is_dir()
+    assert (tasks_root / dirname / "README.md").exists()
 
 
 def test_unarchive_allows_actions_on_task(story_id: str) -> None:

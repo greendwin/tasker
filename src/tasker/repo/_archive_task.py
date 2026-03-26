@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from tasker.base_types import Task, is_root_task_id
 from tasker.exceptions import TaskValidateError
-from tasker.parse import parse_task_ref
+from tasker.parse import ParsedRef, parse_task_ref
 
 if TYPE_CHECKING:
     from ._task_repo import TaskRepo
@@ -48,7 +48,7 @@ def archive_task_impl(
     return forced
 
 
-def unarchive_task_impl(repo: TaskRepo, task_ref: str) -> str:
+def unarchive_task_impl(repo: TaskRepo, task_ref: str) -> ParsedRef:
     ti = parse_task_ref(task_ref)
 
     if not is_root_task_id(ti.task_id):
@@ -68,4 +68,4 @@ def unarchive_task_impl(repo: TaskRepo, task_ref: str) -> str:
     dst = repo.root / src.name
     shutil.move(str(src), str(dst))
 
-    return src.name
+    return ti

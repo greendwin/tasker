@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 import pytest
 
@@ -7,6 +6,7 @@ from tasker.base_types import TaskStatus
 from tasker.cli import app
 from tasker.parse import parse_task_file
 
+from .conftest import GetTaskFile
 from .helpers import add_subtask, assert_invoke, create_task
 
 
@@ -21,18 +21,22 @@ def test_stop_pending_leaf_task_succeeds(story_id: str) -> None:
     assert task_id in result.output
 
 
-def test_stop_leaf_task_updates_status_on_disk(story_id: str) -> None:
+def test_stop_leaf_task_updates_status_on_disk(
+    story_id: str, get_task_file: GetTaskFile
+) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["done", task_id])
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     content = task_file.read_text()
     assert f"- [x] {task_id}: Leaf task" in content
 
 
-def test_stop_leaf_task_parses_as_done(story_id: str) -> None:
+def test_stop_leaf_task_parses_as_done(
+    story_id: str, get_task_file: GetTaskFile
+) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["done", task_id])
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     result = parse_task_file(task_file)
     assert result.subtasks[0].status == TaskStatus.DONE
 
@@ -44,30 +48,35 @@ def test_stop_already_done_task_succeeds(story_id: str) -> None:
     assert "already finished" in result.output
 
 
-def test_stop_in_progress_task_marks_done(story_id: str) -> None:
+def test_stop_in_progress_task_marks_done(
+    story_id: str, get_task_file: GetTaskFile
+) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["start", task_id])
     assert_invoke(app, ["done", task_id])
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     result = parse_task_file(task_file)
     assert result.subtasks[0].status == TaskStatus.DONE
 
 
-def test_stop_subtask_sets_parent_done_when_only_subtask(story_id: str) -> None:
+def test_stop_subtask_sets_parent_done_when_only_subtask(
+    story_id: str, get_task_file: GetTaskFile
+) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["done", task_id])
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     task = parse_task_file(task_file).task
     assert task.status == TaskStatus.DONE
 
 
 def test_stop_subtask_parent_stays_in_progress_when_sibling_pending(
     story_id: str,
+    get_task_file: GetTaskFile,
 ) -> None:
     t01 = add_subtask(story_id, "Task one").task_id
     add_subtask(story_id, "Task two")
     assert_invoke(app, ["done", t01])
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     task = parse_task_file(task_file).task
     assert task.status == TaskStatus.PENDING
 
@@ -104,28 +113,34 @@ def test_done_force_succeeds_with_open_subtasks(story_id: str) -> None:
     assert_invoke(app, ["done", "--force", story_id])
 
 
-def test_done_force_marks_all_subtasks_done(story_id: str) -> None:
+def test_done_force_marks_all_subtasks_done(
+    story_id: str, get_task_file: GetTaskFile
+) -> None:
     add_subtask(story_id, "Subtask one")
     add_subtask(story_id, "Subtask two")
     assert_invoke(app, ["done", "--force", story_id])
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     result = parse_task_file(task_file)
     assert all(t.status == TaskStatus.DONE for t in result.subtasks)
 
 
-def test_done_force_marks_parent_done(story_id: str) -> None:
+def test_done_force_marks_parent_done(
+    story_id: str, get_task_file: GetTaskFile
+) -> None:
     add_subtask(story_id, "Subtask one")
     add_subtask(story_id, "Subtask two")
     assert_invoke(app, ["done", "--force", story_id])
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     task = parse_task_file(task_file).task
     assert task.status == TaskStatus.DONE
 
 
-def test_done_force_on_leaf_task_works(story_id: str) -> None:
+def test_done_force_on_leaf_task_works(
+    story_id: str, get_task_file: GetTaskFile
+) -> None:
     task_id = add_subtask(story_id, "Leaf task").task_id
     assert_invoke(app, ["done", "--force", task_id])
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
     result = parse_task_file(task_file)
     assert result.subtasks[0].status == TaskStatus.DONE
 
@@ -191,14 +206,16 @@ def test_done_already_done_nonleaf_json_succeeds(story_id: str) -> None:
 # --- idempotent flush on manual edit ---
 
 
-def test_done_idempotent_flushes_corrected_statuses(story_id: str) -> None:
+def test_done_idempotent_flushes_corrected_statuses(
+    story_id: str, get_task_file: GetTaskFile
+) -> None:
     """Manual edit: mark subtask done, but parent still pending on disk.
 
     Running `done` on the subtask is idempotent (already done), but
     the corrected parent status must still be flushed to disk.
     """
     task_id = add_subtask(story_id, "Task one").task_id
-    task_file = next(Path("planning").glob(f"{story_id}-*.md"))
+    task_file = get_task_file(story_id)
 
     # simulate manual edit: mark subtask done but leave parent pending
     content = task_file.read_text()

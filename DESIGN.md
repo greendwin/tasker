@@ -84,21 +84,21 @@ s01-design-file-structure/        ← extended form (dir)
 ### Basic task
 
 ```
-planning/
+tasker/
   s01-design-file-structure.md
 ```
 
 ### Basic task with inline subtasks
 
 ```
-planning/
+tasker/
   s01-design-file-structure.md    ← contains ## Subtasks bullet list
 ```
 
 ### Extended task (recursive)
 
 ```
-planning/
+tasker/
   s01-design-file-structure/
     README.md                     ← task description + list of subtask links
     s01t01-define-task-forms.md   ← basic subtask
@@ -108,7 +108,7 @@ planning/
       s01t0202-write-tests.md
 ```
 
-Root-level stories live directly under `planning/`. Archived tasks move to `planning/archive/`.
+Root-level stories live directly under `tasker/`. Archived tasks move to `tasker/archive/`.
 
 ---
 
@@ -253,7 +253,7 @@ tasker list --blocked
 ### Archive
 
 ```bash
-# Move root story to planning/archive/
+# Move root story to tasker/archive/
 tasker archive <task-id>
 ```
 
@@ -268,15 +268,15 @@ Only root stories can be archived. Archiving a non-root task is an error.
 ```bash
 # Create a root story
 tasker new "Design file structure"
-# → planning/s01-design-file-structure.md  (Status: pending)
+# → tasker/s01-design-file-structure.md  (Status: pending)
 
 # Create with description
 tasker new "Design file structure" --details "Define how tasks are stored on disk"
-# → planning/s01-design-file-structure.md  (description included)
+# → tasker/s01-design-file-structure.md  (description included)
 
 # Add an inline subtask (no file created, gets an ID in ## Subtasks list)
 tasker add s01 "Define task forms"
-# → - [ ] s01t01: Define task forms  (in planning/s01-design-file-structure.md ## Subtasks)
+# → - [ ] s01t01: Define task forms  (in tasker/s01-design-file-structure.md ## Subtasks)
 
 # Add multiple inline subtasks in one session (empty line ends input)
 tasker add-many s01
@@ -290,17 +290,17 @@ tasker add-many s01
 
 # Add a subtask with details — auto-upgrades parent to extended form
 tasker add s01 "Write CLI spec" --details "Cover all commands and options"
-# → planning/s01-design-file-structure/README.md  (parent upgraded)
-# → planning/s01-design-file-structure/s01t02-write-cli-spec.md
+# → tasker/s01-design-file-structure/README.md  (parent upgraded)
+# → tasker/s01-design-file-structure/s01t02-write-cli-spec.md
 
 # Add a subtask under a subtask — two digits appended
 tasker add s01t02 "Draft commands" --details "List every command with args"
-# → planning/s01-design-file-structure/s01t02-write-cli-spec/README.md  (parent upgraded)
-# → planning/s01-design-file-structure/s01t02-write-cli-spec/s01t0201-draft-commands.md
+# → tasker/s01-design-file-structure/s01t02-write-cli-spec/README.md  (parent upgraded)
+# → tasker/s01-design-file-structure/s01t02-write-cli-spec/s01t0201-draft-commands.md
 
 # AI-created task with explicit slug
 tasker add s01 "Implement command parsing" --details "..." --slug "impl-cmd-parsing"
-# → planning/s01-design-file-structure/s01t03-impl-cmd-parsing.md
+# → tasker/s01-design-file-structure/s01t03-impl-cmd-parsing.md
 
 # Reference by ID or full name — both work
 tasker start s01t02

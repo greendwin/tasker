@@ -2,6 +2,7 @@ from pathlib import Path
 
 from tasker.base_types import Task, TaskStatus
 from tasker.exceptions import TaskHasSubtasksError
+from tasker.parse import ParsedRef
 
 from ._archive_task import archive_task_impl, unarchive_task_impl
 from ._move_task import TaskRename, move_task_impl
@@ -138,7 +139,7 @@ class TaskRepo:
     def archive_task(self, task: Task, *, force: bool = False) -> list[Task] | None:
         return archive_task_impl(self, task, force=force)
 
-    def unarchive_task(self, task_ref: str) -> str:
+    def unarchive_task(self, task_ref: str) -> ParsedRef:
         return unarchive_task_impl(self, task_ref)
 
     def move_task(self, task: Task, *, new_parent: Task | None) -> list[TaskRename]:

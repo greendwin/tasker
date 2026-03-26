@@ -4,7 +4,7 @@ from typing import NamedTuple
 
 from tasker.base_types import Task, is_root_task_id
 from tasker.exceptions import TaskValidateError
-from tasker.parse import parse_task_ref
+from tasker.parse import make_child_ref, parse_task_ref
 
 from ._task_loader import TaskLoader
 from ._utils import (
@@ -118,5 +118,4 @@ def _replace_parent_id(task_id: str, *, new_parent_id: str) -> str:
     # Take the task's own 2-digit suffix and append it to the new parent's
     # child prefix.
     own_suffix = task_id[-2:]
-    child_prefix = new_parent_id if "t" in new_parent_id else new_parent_id + "t"
-    return child_prefix + own_suffix
+    return make_child_ref(new_parent_id, own_suffix)

@@ -6,6 +6,7 @@ import pytest
 from tasker.cli import app
 from tasker.parse import parse_task_file
 
+from .conftest import GetTaskFile
 from .helpers import add_subtask, assert_invoke, create_task
 
 # ---------------------------------------------------------------------------
@@ -124,10 +125,10 @@ def test_json_move_to_root(s1: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_old_basic_file_removed_after_move(s1: str, s2: str) -> None:
+def test_old_basic_file_removed_after_move(s1: str, s2: str, tasks_root: Path) -> None:
     t01 = add_subtask(s1, "Task A", details="Details").task_id
     # find original file
-    story_dir = next(Path("planning").glob(f"{s1}-*/"))
+    story_dir = next(tasks_root.glob(f"{s1}-*/"))
     old_file = next(story_dir.glob(f"{t01}-*.md"))
     assert old_file.exists()
 
@@ -135,10 +136,12 @@ def test_old_basic_file_removed_after_move(s1: str, s2: str) -> None:
     assert not old_file.exists()
 
 
-def test_old_extended_dir_removed_after_move(s1: str, s2: str) -> None:
+def test_old_extended_dir_removed_after_move(
+    s1: str, s2: str, tasks_root: Path
+) -> None:
     t01 = add_subtask(s1, "Container", details="Details").task_id
     add_subtask(t01, "Child", details="Child details")
-    story_dir = next(Path("planning").glob(f"{s1}-*/"))
+    story_dir = next(tasks_root.glob(f"{s1}-*/"))
     old_dir = next(story_dir.glob(f"{t01}-*/"))
     assert old_dir.is_dir()
 
@@ -146,10 +149,12 @@ def test_old_extended_dir_removed_after_move(s1: str, s2: str) -> None:
     assert not old_dir.exists()
 
 
-def test_old_extended_dir_with_user_data_not_removed(s1: str, s2: str) -> None:
+def test_old_extended_dir_with_user_data_not_removed(
+    s1: str, s2: str, tasks_root: Path
+) -> None:
     t01 = add_subtask(s1, "Container", details="Details").task_id
     add_subtask(t01, "Child", details="Child details")
-    story_dir = next(Path("planning").glob(f"{s1}-*/"))
+    story_dir = next(tasks_root.glob(f"{s1}-*/"))
     old_dir = next(story_dir.glob(f"{t01}-*/"))
 
     # place a non-task file inside the extended directory
@@ -164,30 +169,32 @@ def test_old_extended_dir_with_user_data_not_removed(s1: str, s2: str) -> None:
     assert user_file.read_text() == "user notes"
 
 
-def test_new_file_created_after_move(s1: str, s2: str) -> None:
+def test_new_file_created_after_move(s1: str, s2: str, tasks_root: Path) -> None:
     t01 = add_subtask(s1, "Task A", details="Details").task_id
     assert_invoke(app, ["move", t01, "--parent", s2])
     # new file should be under s2's directory
-    story_dir = next(Path("planning").glob(f"{s2}-*/"))
+    story_dir = next(tasks_root.glob(f"{s2}-*/"))
     new_files = list(story_dir.glob(f"{s2}t01-*.md"))
     assert len(new_files) == 1
 
 
-def test_old_root_file_removed_when_moved_under_parent(s1: str, s2: str) -> None:
-    old_file = next(Path("planning").glob(f"{s1}-*.md"))
+def test_old_root_file_removed_when_moved_under_parent(
+    s1: str, s2: str, get_task_file: GetTaskFile
+) -> None:
+    old_file = get_task_file(s1)
     assert old_file.exists()
 
     assert_invoke(app, ["move", s1, "--parent", s2])
     assert not old_file.exists()
 
 
-def test_move_to_root_creates_root_file(s1: str) -> None:
+def test_move_to_root_creates_root_file(s1: str, tasks_root: Path) -> None:
     t01 = add_subtask(s1, "Promote me", details="Content").task_id
     assert_invoke(app, ["move", t01, "--root"])
     # should be a new root task file
     # new root ID should be s03 or higher (s1=s01, s2 not created here but
     # we only have s1 in this test)
-    new_files = list(Path("planning").glob("s*-promote-me.md"))
+    new_files = list(tasks_root.glob("s*-promote-me.md"))
     assert len(new_files) == 1
 
 
@@ -196,24 +203,26 @@ def test_move_to_root_creates_root_file(s1: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_old_parent_subtask_list_updated(s1: str, s2: str) -> None:
+def test_old_parent_subtask_list_updated(
+    s1: str, s2: str, get_task_file: GetTaskFile
+) -> None:
     t01 = add_subtask(s1, "Mover").task_id
     add_subtask(s1, "Stayer")
     assert_invoke(app, ["move", t01, "--parent", s2])
 
     # old parent should only have "Stayer"
-    story_file = next(Path("planning").glob(f"{s1}-*.md"))
+    story_file = get_task_file(s1)
     content = story_file.read_text()
     assert "Mover" not in content
     assert "Stayer" in content
 
 
-def test_new_parent_subtask_list_updated(s1: str, s2: str) -> None:
+def test_new_parent_subtask_list_updated(s1: str, s2: str, tasks_root: Path) -> None:
     add_subtask(s1, "Task A")
     assert_invoke(app, ["move", f"{s1}t01", "--parent", s2])
 
     # new parent should list the moved task (may be .md or dir/README.md)
-    candidates = list(Path("planning").glob(f"{s2}-*"))
+    candidates = list(tasks_root.glob(f"{s2}-*"))
     assert len(candidates) == 1
     path = candidates[0]
     content = (path / "README.md").read_text() if path.is_dir() else path.read_text()
@@ -226,34 +235,36 @@ def test_new_parent_subtask_list_updated(s1: str, s2: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_moved_task_preserves_description(s1: str, s2: str) -> None:
+def test_moved_task_preserves_description(s1: str, s2: str, tasks_root: Path) -> None:
     t01 = add_subtask(s1, "Described task", details="Important details").task_id
     assert_invoke(app, ["move", t01, "--parent", s2])
-    story_dir = next(Path("planning").glob(f"{s2}-*/"))
+    story_dir = next(tasks_root.glob(f"{s2}-*/"))
     new_file = next(story_dir.glob(f"{s2}t01-*.md"))
     parsed = parse_task_file(new_file)
     assert parsed.task.description == "Important details"
 
 
-def test_moved_task_preserves_status(s1: str, s2: str) -> None:
+def test_moved_task_preserves_status(s1: str, s2: str, tasks_root: Path) -> None:
     t01 = add_subtask(s1, "Started task").task_id
     assert_invoke(app, ["start", t01])
     assert_invoke(app, ["move", t01, "--parent", s2])
     # parent may have been upgraded to extended (directory)
-    candidates = list(Path("planning").glob(f"{s2}-*"))
+    candidates = list(tasks_root.glob(f"{s2}-*"))
     path = candidates[0]
     content = (path / "README.md").read_text() if path.is_dir() else path.read_text()
     assert "[~]" in content  # in-progress checkbox
 
 
-def test_moved_task_preserves_inline_subtasks(s1: str, s2: str) -> None:
+def test_moved_task_preserves_inline_subtasks(
+    s1: str, s2: str, tasks_root: Path
+) -> None:
     t01 = add_subtask(s1, "Container", details="Details").task_id
     add_subtask(t01, "Child A")
     add_subtask(t01, "Child B")
     assert_invoke(app, ["move", t01, "--parent", s2])
 
     # s2 is now extended (directory) because it gained a file-backed subtask
-    story_dir = next(Path("planning").glob(f"{s2}-*/"))
+    story_dir = next(tasks_root.glob(f"{s2}-*/"))
     assert story_dir.is_dir()
     # container is basic (inline subtasks only) — a .md file
     container_file = next(story_dir.glob(f"{s2}t01-*.md"))
@@ -262,13 +273,15 @@ def test_moved_task_preserves_inline_subtasks(s1: str, s2: str) -> None:
     assert "Child B" in content
 
 
-def test_moved_extended_task_preserves_file_subtasks(s1: str, s2: str) -> None:
+def test_moved_extended_task_preserves_file_subtasks(
+    s1: str, s2: str, tasks_root: Path
+) -> None:
     t01 = add_subtask(s1, "Container", details="Details").task_id
     add_subtask(t01, "Child A", details="A details")
     add_subtask(t01, "Child B", details="B details")
     assert_invoke(app, ["move", t01, "--parent", s2])
 
-    story_dir = next(Path("planning").glob(f"{s2}-*/"))
+    story_dir = next(tasks_root.glob(f"{s2}-*/"))
     container_dir = next(story_dir.glob(f"{s2}t01-*/"))
     assert container_dir.is_dir()
     readme = container_dir / "README.md"

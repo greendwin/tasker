@@ -1,6 +1,6 @@
 ---
-id: s12t03
-status: pending
+id: s15
+status: done
 ---
 
 # Recent shortcut
@@ -20,3 +20,11 @@ tasker add s12t02 "Other subtask 1"  # q := s12t02
 tasked add q "Other subtask 2"  # add to s12t02
 tasker start q01  # started s12t0201
 ```
+
+## Subtasks
+
+- [x] ~~s15t01: Need git-ignored config aka `.tasker`~~
+- [x] ~~s15t02: Need 'init' command that setups 'planning' directory~~
+- [x] s15t03: TBD: we can add tasker directory instead of planning, put .gitignore there so that last task can be stored there
+- [x] s15t04: Rework 'planning' to 'tasker'
+- [x] [s15t05](s15t05-store-last-target-task.md): Store last target task
