@@ -203,13 +203,13 @@ def test_p_errors_when_no_recent(tasks_root: Path) -> None:
     assert_invoke(app, ["edit", "p", "--title", "nope"], expect_error=True)
 
 
-def test_p_updates_recent_to_parent(s1: str, tasks_root: Path) -> None:
+def test_p_does_not_update_recent(s1: str, tasks_root: Path) -> None:
     t01 = add_subtask(s1, "Task A").task_id
     assert_invoke(app, ["start", t01])  # recent = s01t01
 
-    # 'p' resolves to s01, which is a direct ref — so recent is updated to s01
+    # 'p' is a shortcut — recent must stay as t01
     assert_invoke(app, ["edit", "p", "--title", "Parent edited via p"])
-    assert _read_recent(tasks_root) == s1
+    assert _read_recent(tasks_root) == t01
 
 
 # ---------------------------------------------------------------------------
@@ -301,3 +301,51 @@ def test_q_digits_errors_for_nonexistent_child(s1: str, tasks_root: Path) -> Non
     # recent = s01
     # q99 -> s01t99 which doesn't exist
     assert_invoke(app, ["edit", "q99", "--title", "nope"], expect_error=True)
+
+
+def test_q_digits_does_not_update_recent(tasks_root: Path) -> None:
+    s1 = create_task("Story one").task_id
+    t01 = add_subtask(s1, "Task A", details="d").task_id
+    add_subtask(t01, "Sub A1")
+    assert_invoke(app, ["edit", t01, "--title", "Set recent"])  # recent = s01t01
+
+    # q01 resolves to s01t0101 — but since it's a shortcut, recent must stay as t01
+    assert_invoke(app, ["edit", "q01", "--title", "Child edited via q01"])
+    assert _read_recent(tasks_root) == t01
+
+
+def test_p_digits_does_not_update_recent(s1: str, tasks_root: Path) -> None:
+    t01 = add_subtask(s1, "Task A").task_id
+    add_subtask(s1, "Task B")
+    assert_invoke(app, ["start", t01])  # recent = s01t01
+
+    # p02 resolves to s01t02 — but since it's a shortcut, recent must stay as t01
+    assert_invoke(app, ["edit", "p02", "--title", "Sibling edited via p02"])
+    assert _read_recent(tasks_root) == t01
+
+
+# ---------------------------------------------------------------------------
+# add/add-many with shortcuts must not overwrite 'recent' (s15t07)
+# ---------------------------------------------------------------------------
+
+
+def test_add_with_q_shortcut_does_not_override_recent(
+    s1: str, tasks_root: Path
+) -> None:
+    t01 = add_subtask(s1, "Task A").task_id
+    assert_invoke(app, ["start", t01])  # recent = s01t01
+
+    # add via shortcut q (resolves parent to s01) — recent must stay as t01
+    assert_invoke(app, ["add", "q", "New subtask"])
+    assert _read_recent(tasks_root) == t01
+
+
+def test_add_many_with_q_shortcut_does_not_override_recent(
+    s1: str, tasks_root: Path
+) -> None:
+    t01 = add_subtask(s1, "Task A").task_id
+    assert_invoke(app, ["start", t01])  # recent = s01t01
+
+    # add-many via shortcut q — recent must stay as t01
+    assert_invoke(app, ["add-many", "q"], input="New subtask\n\n")
+    assert _read_recent(tasks_root) == t01

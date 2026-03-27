@@ -28,6 +28,7 @@ tasker start q01  # started s12t0201
 - [x] s15t03: TBD: we can add tasker directory instead of planning, put .gitignore there so that last task can be stored there
 - [x] s15t04: Rework 'planning' to 'tasker'
 - [x] [s15t05](s15t05-store-last-target-task.md): Store last target task
-- [ ] s15t06: Shortcuts usage should NEVER update 'recent'
-- [ ] [s15t07](s15t07-bug-on-add-new-tasks.md): BUG: on add new tasks overrides 'recent'
-- [ ] s15t08: TBD: move to parent should target parent, not a new child
+- [x] s15t06: Shortcuts usage should NEVER update 'recent'
+- [x] [s15t07](s15t07-bug-on-add-new-tasks.md): BUG: on add new tasks overrides 'recent'
+- [x] ~~s15t08: TBD: move to parent should target parent, not a new child~~
+- [ ] s15t09: Support 'pp' reference aka parent of the parent

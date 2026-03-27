@@ -43,16 +43,18 @@ def get_task_repo() -> TaskRepo:
 
 
 def resolve_ref(repo: TaskRepo, task_ref: str, *, save_recent: bool = False) -> Task:
-    if task_ref == "q":
-        task_ref = _resolve_recent(repo, task_ref)
-    elif m := re.fullmatch(r"q((?:\d{2})+)", task_ref):
-        task_ref = make_child_ref(_resolve_recent(repo, task_ref), m.group(1))
-    elif task_ref == "p":
-        recent = parse_task_ref(_resolve_recent(repo, task_ref))
-        task_ref = recent.parent_id
-    elif m := re.fullmatch(r"p((?:\d{2})+)", task_ref):
-        recent = parse_task_ref(_resolve_recent(repo, task_ref))
-        task_ref = make_child_ref(recent.parent_id, m.group(1))
+    is_direct_link = task_ref.startswith("s")
+    if not is_direct_link:
+        if task_ref == "q":
+            task_ref = _resolve_recent(repo, task_ref)
+        elif m := re.fullmatch(r"q((?:\d{2})+)", task_ref):
+            task_ref = make_child_ref(_resolve_recent(repo, task_ref), m.group(1))
+        elif task_ref == "p":
+            recent = parse_task_ref(_resolve_recent(repo, task_ref))
+            task_ref = recent.parent_id
+        elif m := re.fullmatch(r"p((?:\d{2})+)", task_ref):
+            recent = parse_task_ref(_resolve_recent(repo, task_ref))
+            task_ref = make_child_ref(recent.parent_id, m.group(1))
 
     try:
         task = repo.resolve_ref(task_ref)
@@ -64,13 +66,9 @@ def resolve_ref(repo: TaskRepo, task_ref: str, *, save_recent: bool = False) -> 
         console.print("Unarchive it first before performing actions on it.")
         raise typer.Exit(1) from ex
     else:
-        if save_recent and _is_direct_link(task_ref):
+        if save_recent and is_direct_link:
             save_recent_task(repo, task.id)
         return task
-
-
-def _is_direct_link(task_ref: str) -> bool:
-    return task_ref.startswith("s")
 
 
 def save_recent_task(repo: TaskRepo, task_id: str) -> None:

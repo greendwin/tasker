@@ -1,6 +1,6 @@
 ---
 id: s15t07
-status: pending
+status: done
 ---
 
 # BUG: on add new tasks overrides 'recent'
