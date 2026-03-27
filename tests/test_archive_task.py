@@ -335,3 +335,31 @@ def test_json_unarchive_multiple_tasks(story_id: str) -> None:
     assert len(data["task_refs"]) == 2
     assert any(story_id in r for r in data["task_refs"])
     assert any(story2_id in r for r in data["task_refs"])
+
+
+# --- move archived task / to archived parent ---
+
+
+def test_move_archived_task_to_parent_auto_unarchives(
+    tasks_root: Path, story_id: str
+) -> None:
+    story2_id = create_task("Second story").task_id
+    _archive_story(story_id)
+    result = assert_invoke(app, ["move", story_id, "--parent", story2_id])
+    assert "unarchiv" in result.output.lower()
+    assert "moved" in result.output.lower()
+    # story should now be a subtask of story2, not in archive
+    assert any(tasks_root.glob(f"{story2_id}-*"))
+
+
+def test_move_task_to_archived_parent_auto_unarchives(
+    tasks_root: Path, story_id: str
+) -> None:
+    story2_id = create_task("Second story").task_id
+    t01 = add_subtask(story_id, "Subtask").task_id
+    _archive_story(story2_id)
+    result = assert_invoke(app, ["move", t01, "--parent", story2_id])
+    assert "unarchiv" in result.output.lower()
+    assert "moved" in result.output.lower()
+    # story2 should be back in tasks root
+    assert any(tasks_root.glob(f"{story2_id}-*"))

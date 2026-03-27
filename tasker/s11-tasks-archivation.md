@@ -19,6 +19,6 @@ add 'archive' command that moves complete task to 'planning/archive'
 - [x] s11t08: Actions on archived task must report that task is archived; note: dont load archived tasks, store ids of archived root tasks, its enought
 - [x] s11t09: Support multiple arguments on both `arch` and `unarch`
 - [x] s11t10: Unarchive task when trying to 'add' to archived story
-- [ ] s11t11: Allow to move archived task (reference story itself) to non-archived parent
-- [ ] s11t12: Trying to attach any task (either archived or unarchived) to an archived task must unarchive it
+- [x] s11t11: Allow to move archived task (reference story itself) to non-archived parent
+- [x] s11t12: Trying to attach any task (either archived or unarchived) to an archived task must unarchive it
 - [ ] s11t13: BUG: when archiving with force, parent status would be CANCELLED regardless of existing done tasks

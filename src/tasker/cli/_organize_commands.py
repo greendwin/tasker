@@ -117,8 +117,12 @@ def cmd_move_task(
                 task_ref=task_ref,
             )
 
-        task = resolve_ref(repo, task_ref)
-        new_parent = resolve_ref(repo, parent_ref) if parent_ref is not None else None
+        task = resolve_ref(repo, task_ref, auto_unarchive=True)
+        new_parent = (
+            resolve_ref(repo, parent_ref, auto_unarchive=True)
+            if parent_ref is not None
+            else None
+        )
         renames = repo.move_task(task, new_parent=new_parent)
 
         # save regenerated id
