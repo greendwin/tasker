@@ -90,6 +90,44 @@ def test_list_all_shows_closed_nested_subtask() -> None:
     assert nested_id in result.output
 
 
+# cancelled subtasks shown full gray (no blue ID)
+
+
+def test_list_all_cancelled_subtask_has_no_blue_id() -> None:
+    task_id = create_task("My story").task_id
+    sub_id = add_subtask(task_id, "Cancelled subtask").task_id
+    assert_invoke(app, ["cancel", sub_id])
+    result = assert_invoke(app, ["list", "--all"])
+    # cancelled line should not linkify the ID in blue
+    assert f"[blue]{sub_id}[/blue]" not in result.output
+    assert sub_id in result.output
+
+
+def test_list_default_no_cancelled_subtask_in_output() -> None:
+    task_id = create_task("My story").task_id
+    sub_id = add_subtask(task_id, "Cancelled subtask").task_id
+    assert_invoke(app, ["cancel", sub_id])
+    result = assert_invoke(app, ["list"])
+    assert sub_id not in result.output
+
+
+# s17t08: --all always shows status marker (even for pending)
+
+
+def test_list_all_shows_pending_marker() -> None:
+    task_id = create_task("My story").task_id
+    add_subtask(task_id, "Pending subtask").task_id
+    result = assert_invoke(app, ["list", "--all"])
+    assert "[ ]" in result.output
+
+
+def test_list_default_no_pending_marker_for_subtask() -> None:
+    task_id = create_task("My story").task_id
+    add_subtask(task_id, "Pending subtask").task_id
+    result = assert_invoke(app, ["list"])
+    assert "[ ]" not in result.output
+
+
 def test_list_all_indents_nested_subtasks() -> None:
     task_id = create_task("My story").task_id
     sub_id = add_subtask(task_id, "Sub", details="desc").task_id

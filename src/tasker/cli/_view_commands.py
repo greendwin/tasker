@@ -68,14 +68,12 @@ def cmd_show_task(
 @app.command("list", help="List open tasks with their pending subtasks.")
 def cmd_list_tasks(
     *,
-    list_all: Annotated[
+    show_all: Annotated[
         bool,
         typer.Option("--all", help="Show all subtasks including closed."),
     ] = False,
     repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
-    show_closed = list_all
-
     with console.catching_output():
         all_tasks = _load_root_tasks(repo)
 
@@ -88,7 +86,8 @@ def cmd_list_tasks(
             marker = _STATUS_MARKER[task.status]
 
             marker_prefix = f"[{color}]{marker}[/{color}] "
-            if task.status == TaskStatus.PENDING:
+            if task.status == TaskStatus.PENDING and not show_all:
+                # note: when `--all` is used
                 marker_prefix = ""
 
             console.print(
@@ -96,35 +95,32 @@ def cmd_list_tasks(
                 json_output={"tasks": JsonAppend(_task_to_json(task))},
             )
 
-            _print_subtasks(task.subtasks, depth=1, show_closed=show_closed)
+            _print_subtasks(task.subtasks, depth=1, show_all=show_all)
 
 
-def _print_subtasks(
-    subtasks: list[Task],
-    *,
-    depth: int,
-    show_closed: bool,
-) -> None:
-    shown = subtasks if show_closed else [s for s in subtasks if not s.is_closed]
+def _print_subtasks(subtasks: list[Task], *, depth: int, show_all: bool) -> None:
     indent = "  " * depth
-    for subtask in shown:
-        sub_color = _STATUS_COLOR[subtask.status]
-        sub_marker = _STATUS_MARKER[subtask.status]
+    for task in subtasks:
+        if not show_all and task.is_closed:
+            continue
 
-        marker_prefix = f"[{sub_color}]{sub_marker}[/{sub_color}] "
-        if subtask.status == TaskStatus.PENDING:
-            marker_prefix = ""
+        color = _STATUS_COLOR[task.status]
+        marker = _STATUS_MARKER[task.status]
 
-        console.print(
-            f"{indent}- [blue]{subtask.id}[/blue]: {marker_prefix}{subtask.title}"
-        )
+        if task.status == TaskStatus.CANCELLED:
+            line = f"{task.id}: {marker} {task.title}"
+            console.print(f"{indent}- [{color}]{line}[/{color}]")
+        else:
+            marker_prefix = f"[{color}]{marker}[/{color}] "
+            if not show_all and task.status == TaskStatus.PENDING:
+                marker_prefix = ""
 
-        if subtask.subtasks:
-            _print_subtasks(
-                subtask.subtasks,
-                depth=depth + 1,
-                show_closed=show_closed,
+            console.print(
+                f"{indent}- [blue]{task.id}[/blue]: {marker_prefix}{task.title}"
             )
+
+        if task.subtasks:
+            _print_subtasks(task.subtasks, depth=depth + 1, show_all=show_all)
 
 
 def _load_root_tasks(repo: TaskRepo) -> list[Task]:
