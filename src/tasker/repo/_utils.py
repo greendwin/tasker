@@ -23,6 +23,11 @@ def find_next_root_task_id(loader: TaskLoader) -> str:
     return f"s{max(existing, default=0) + 1:02d}"
 
 
+def list_root_tasks(root: Path) -> list[str]:
+    nums = sorted(_scan_root_task_nums(root))
+    return [f"s{n:02d}" for n in nums]
+
+
 def _scan_root_task_nums(directory: Path) -> list[int]:
     if not directory.is_dir():
         return []

@@ -9,68 +9,6 @@ from tasker.utils import JsonAppend, console
 
 from ._common import app, get_task_repo, resolve_ref
 
-_STATUS_COLOR = {
-    TaskStatus.PENDING: "white",
-    TaskStatus.IN_PROGRESS: "bright_blue",
-    TaskStatus.DONE: "green",
-    TaskStatus.CANCELLED: "bright_black",
-}
-
-_STATUS_MARKER = {
-    TaskStatus.PENDING: r"\[ ]",
-    TaskStatus.IN_PROGRESS: r"\[~]",
-    TaskStatus.DONE: r"\[x]",
-    TaskStatus.CANCELLED: r"\[x]",
-}
-
-
-@app.command("show", help="Print task content.")
-def cmd_show_task(
-    *,
-    task_ref: Annotated[str, typer.Argument(help="Task ID to show.")],
-    repo: TaskRepo = Depends(get_task_repo),
-) -> None:
-    with console.catching_output():
-        task = resolve_ref(repo, task_ref, save_recent=True)
-
-        subtasks_json = [
-            {"id": s.id, "title": s.title, "status": s.status.value}
-            for s in task.subtasks
-        ]
-        color = _STATUS_COLOR[task.status]
-        marker = _STATUS_MARKER[task.status]
-        console.print(
-            f"[{color}]{marker}[/{color}] [bold]{task.title}[/bold]",
-            json_output={
-                "task_ref": task.ref,
-                "id": task.id,
-                "title": task.title,
-                "status": task.status.value,
-                "description": task.description,
-                "subtasks": subtasks_json,
-            },
-        )
-
-        if task.description:
-            console.print(f"\n{task.description}")
-
-        if task.extra_sections:
-            console.print(f"\n{task.extra_sections}")
-
-        if task.subtasks:
-            console.print("\n[bold]Subtasks:[/bold]")
-            for subtask in task.subtasks:
-                sub_color = _STATUS_COLOR[subtask.status]
-                sub_marker = _STATUS_MARKER[subtask.status]
-                if subtask.status == TaskStatus.CANCELLED:
-                    line = f"{sub_marker} {subtask.id}: {subtask.title}"
-                    console.print(f"  [{sub_color}]{line}[/{sub_color}]")
-                else:
-                    console.print(
-                        f"  [{sub_color}]{sub_marker}[/{sub_color}]"
-                        f" [blue]{subtask.id}[/blue]: {subtask.title}"
-                    )
-
 
 @app.command("start", help="Mark task(s) as in-progress.")
 def cmd_start_task(

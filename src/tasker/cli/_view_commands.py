@@ -1,0 +1,121 @@
+from pathlib import Path
+from typing import Annotated, Any
+
+import typer
+from typer_di import Depends
+
+from tasker.base_types import Task, TaskStatus
+from tasker.repo import TaskRepo
+from tasker.utils import JsonAppend, console
+
+from ._common import app, get_task_repo, resolve_ref
+
+_STATUS_COLOR = {
+    TaskStatus.PENDING: "white",
+    TaskStatus.IN_PROGRESS: "bright_blue",
+    TaskStatus.DONE: "green",
+    TaskStatus.CANCELLED: "bright_black",
+}
+
+_STATUS_MARKER = {
+    TaskStatus.PENDING: r"\[ ]",
+    TaskStatus.IN_PROGRESS: r"\[~]",
+    TaskStatus.DONE: r"\[x]",
+    TaskStatus.CANCELLED: r"\[x]",
+}
+
+
+@app.command("show", hidden=True)
+@app.command("view", help="Print task content.")
+def cmd_show_task(
+    *,
+    task_ref: Annotated[str, typer.Argument(help="Task ID to show.")],
+    repo: TaskRepo = Depends(get_task_repo),
+) -> None:
+    with console.catching_output():
+        task = resolve_ref(repo, task_ref, save_recent=True)
+
+        color = _STATUS_COLOR[task.status]
+        marker = _STATUS_MARKER[task.status]
+        console.print(
+            f"[{color}]{marker}[/{color}] [bold]{task.title}[/bold]",
+            json_output=_task_to_json(task),
+        )
+
+        if task.description:
+            console.print(f"\n{task.description}")
+
+        if task.extra_sections:
+            console.print(f"\n{task.extra_sections}")
+
+        if task.subtasks:
+            console.print("\n[bold]Subtasks:[/bold]")
+            for subtask in task.subtasks:
+                sub_color = _STATUS_COLOR[subtask.status]
+                sub_marker = _STATUS_MARKER[subtask.status]
+                if subtask.status == TaskStatus.CANCELLED:
+                    line = f"{sub_marker} {subtask.id}: {subtask.title}"
+                    console.print(f"  [{sub_color}]{line}[/{sub_color}]")
+                    continue
+
+                console.print(
+                    f"  [{sub_color}]{sub_marker}[/{sub_color}]"
+                    f" [blue]{subtask.id}[/blue]: {subtask.title}"
+                )
+
+
+@app.command("list", help="List open tasks with their pending subtasks.")
+def cmd_list_tasks(
+    *,
+    repo: TaskRepo = Depends(get_task_repo),
+) -> None:
+    with console.catching_output():
+        all_tasks = _load_root_tasks(repo)
+
+        if not all_tasks:
+            console.print("[dim]No open tasks.[/dim]", json_output={"tasks": []})
+            return
+
+        for task in all_tasks:
+            open_subtasks = [s for s in task.subtasks if not s.is_closed]
+            color = _STATUS_COLOR[task.status]
+            marker = _STATUS_MARKER[task.status]
+
+            marker_prefix = f"[{color}]{marker}[/{color}] "
+            if task.status == TaskStatus.PENDING:
+                marker_prefix = ""
+
+            console.print(
+                f"[blue]{task.id}[/blue]: {marker_prefix}{task.title}",
+                json_output={"tasks": JsonAppend(_task_to_json(task))},
+            )
+
+            for subtask in open_subtasks:
+                sub_color = _STATUS_COLOR[subtask.status]
+                sub_marker = _STATUS_MARKER[subtask.status]
+
+                marker_prefix = f"[{sub_color}]{sub_marker}[/{sub_color}] "
+                if task.status == TaskStatus.PENDING:
+                    marker_prefix = ""
+
+                console.print(
+                    f"  - [blue]{subtask.id}[/blue]: {marker_prefix}{subtask.title}"
+                )
+
+
+def _load_root_tasks(repo: TaskRepo) -> list[Task]:
+    return [repo.resolve_ref(root_id) for root_id in repo.list_root_tasks()]
+
+
+def _task_to_json(task: Task) -> dict[str, Any]:
+    return {
+        "task_ref": task.ref,
+        "id": task.id,
+        "title": task.title,
+        "status": task.status.value,
+        "description": task.description,
+        "subtasks": [
+            {"id": s.id, "title": s.title, "status": s.status.value}
+            for s in task.subtasks
+        ],
+    }

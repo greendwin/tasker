@@ -11,6 +11,7 @@ from ._utils import (
     find_next_root_task_id,
     generate_slug,
     get_next_subtask_id,
+    list_root_tasks,
     update_parents_status,
     upgrade_to_filebased,
 )
@@ -30,6 +31,9 @@ class TaskRepo:
 
     def resolve_ref(self, task_ref: str) -> Task:
         return self.loader.resolve_ref(task_ref)
+
+    def list_root_tasks(self) -> list[str]:
+        return list_root_tasks(self.root)
 
     def create_root_task(
         self,
