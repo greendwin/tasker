@@ -11,7 +11,13 @@ if TYPE_CHECKING:
     from ._task_repo import TaskRepo
 
 
-def archive_task_impl(
+def is_archived_task_impl(repo: TaskRepo, task_ref: str) -> bool:
+    ref = parse_task_ref(task_ref)
+    archive_path = next(repo.archive_root.glob(f"{ref.root_id}-*"), None)
+    return archive_path is not None
+
+
+def archive_root_task_impl(
     repo: TaskRepo, task: Task, *, force: bool = False
 ) -> list[Task] | None:
     if not is_root_task_id(task.id):
@@ -48,7 +54,7 @@ def archive_task_impl(
     return forced
 
 
-def unarchive_task_impl(repo: TaskRepo, task_ref: str) -> ParsedRef:
+def unarchive_root_task_impl(repo: TaskRepo, task_ref: str) -> ParsedRef:
     ti = parse_task_ref(task_ref)
 
     if not is_root_task_id(ti.task_id):

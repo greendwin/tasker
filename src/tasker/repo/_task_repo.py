@@ -4,7 +4,11 @@ from tasker.base_types import Task, TaskStatus
 from tasker.exceptions import TaskHasSubtasksError
 from tasker.parse import ParsedRef
 
-from ._archive_task import archive_task_impl, unarchive_task_impl
+from ._archive_task import (
+    archive_root_task_impl,
+    is_archived_task_impl,
+    unarchive_root_task_impl,
+)
 from ._move_task import TaskRename, move_task_impl
 from ._task_loader import TaskLoader
 from ._utils import (
@@ -140,11 +144,16 @@ class TaskRepo:
         update_parents_status(task, loader=self.loader)
         return closed_tasks[1:]  # don't include root task
 
-    def archive_task(self, task: Task, *, force: bool = False) -> list[Task] | None:
-        return archive_task_impl(self, task, force=force)
+    def is_archived_task(self, task_ref: str) -> bool:
+        return is_archived_task_impl(self, task_ref)
 
-    def unarchive_task(self, task_ref: str) -> ParsedRef:
-        return unarchive_task_impl(self, task_ref)
+    def archive_root_task(
+        self, task: Task, *, force: bool = False
+    ) -> list[Task] | None:
+        return archive_root_task_impl(self, task, force=force)
+
+    def unarchive_root_task(self, task_ref: str) -> ParsedRef:
+        return unarchive_root_task_impl(self, task_ref)
 
     def move_task(self, task: Task, *, new_parent: Task | None) -> list[TaskRename]:
         return move_task_impl(

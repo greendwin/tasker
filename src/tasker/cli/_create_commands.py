@@ -52,7 +52,7 @@ def cmd_add_task(
     repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
-        parent = resolve_ref(repo, parent_ref, save_recent=True)
+        parent = resolve_ref(repo, parent_ref, save_recent=True, auto_unarchive=True)
         child = repo.add_subtask(parent, title=title, description=details, slug=slug)
         repo.flush_to_disk()
 

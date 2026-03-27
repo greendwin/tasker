@@ -235,10 +235,13 @@ def test_reset_archived_task_reports_archived(story_id: str) -> None:
     assert "archived" in result.output.lower()
 
 
-def test_add_to_archived_task_reports_archived(story_id: str) -> None:
+def test_add_to_archived_task_auto_unarchives(tasks_root: Path, story_id: str) -> None:
     _archive_story(story_id)
-    result = assert_invoke(app, ["add", story_id, "New subtask"], expect_error=True)
-    assert "archived" in result.output.lower()
+    result = assert_invoke(app, ["add", story_id, "New subtask"])
+    assert "unarchiv" in result.output.lower()
+    assert f"{story_id}t01" in result.output
+    # task file should be back in the main directory
+    assert any(tasks_root.glob(f"{story_id}-*"))
 
 
 def test_archive_already_archived_task_reports_archived(story_id: str) -> None:

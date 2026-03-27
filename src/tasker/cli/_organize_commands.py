@@ -34,7 +34,7 @@ def cmd_archive_task(
                 _report_open_task(task)
                 raise typer.Exit(1)
 
-            forced = repo.archive_task(task, force=force)
+            forced = repo.archive_root_task(task, force=force)
 
             if forced:
                 console.print("[yellow]Forcibly cancelled subtasks:[/yellow]")
@@ -61,7 +61,7 @@ def cmd_unarchive_task(
 ) -> None:
     with console.catching_output():
         for task_ref in task_refs:
-            ref = repo.unarchive_task(task_ref)
+            ref = repo.unarchive_root_task(task_ref)
             save_recent_task(repo, ref.task_id)
 
             console.print(

@@ -9,7 +9,7 @@ from tasker.base_types import Task
 from tasker.exceptions import TaskArchivedError, TaskValidateError
 from tasker.parse import make_child_ref, parse_task_ref
 from tasker.repo import TaskRepo
-from tasker.utils import console
+from tasker.utils import JsonAppend, console
 
 _RECENT_FILE = ".recent"
 _GITIGNORE_FILE = ".gitignore"
@@ -42,7 +42,13 @@ def get_task_repo() -> TaskRepo:
     return TaskRepo(tasker_dir)
 
 
-def resolve_ref(repo: TaskRepo, task_ref: str, *, save_recent: bool = False) -> Task:
+def resolve_ref(
+    repo: TaskRepo,
+    task_ref: str,
+    *,
+    save_recent: bool = False,
+    auto_unarchive: bool = False,
+) -> Task:
     is_direct_link = task_ref.startswith("s")
     if not is_direct_link:
         if task_ref == "q":
@@ -56,6 +62,14 @@ def resolve_ref(repo: TaskRepo, task_ref: str, *, save_recent: bool = False) -> 
             recent = parse_task_ref(_resolve_recent(repo, task_ref))
             task_ref = make_child_ref(recent.parent_id, m.group(1))
 
+    if auto_unarchive and repo.is_archived_task(task_ref):
+        ref = parse_task_ref(task_ref)
+        repo.unarchive_root_task(ref.root_id)
+        console.print(
+            f"[yellow]Unarchiving [blue]{task_ref}[/blue].[/yellow]",
+            json_output={"unarchived_ref": JsonAppend(ref.root_id)},
+        )
+
     try:
         task = repo.resolve_ref(task_ref)
     except TaskArchivedError as ex:
@@ -65,10 +79,11 @@ def resolve_ref(repo: TaskRepo, task_ref: str, *, save_recent: bool = False) -> 
         console.print(f"[yellow]Task [blue]{ex.task_ref}[/blue] is archived.[/yellow]")
         console.print("Unarchive it first before performing actions on it.")
         raise typer.Exit(1) from ex
-    else:
-        if save_recent and is_direct_link:
-            save_recent_task(repo, task.id)
-        return task
+
+    if save_recent and is_direct_link:
+        save_recent_task(repo, task.id)
+
+    return task
 
 
 def save_recent_task(repo: TaskRepo, task_id: str) -> None:
