@@ -33,9 +33,23 @@ def cmd_show_task(
     with console.catching_output():
         task = resolve_ref(repo, task_ref, save_recent=True)
 
-        sub_color = _STATUS_COLOR[task.status]
+        subtasks_json = [
+            {"id": s.id, "title": s.title, "status": s.status.value}
+            for s in task.subtasks
+        ]
+        color = _STATUS_COLOR[task.status]
         marker = _STATUS_MARKER[task.status]
-        console.print(f"[{sub_color}]{marker}[/{sub_color}] [bold]{task.title}[/bold]")
+        console.print(
+            f"[{color}]{marker}[/{color}] [bold]{task.title}[/bold]",
+            json_output={
+                "task_ref": task.ref,
+                "id": task.id,
+                "title": task.title,
+                "status": task.status.value,
+                "description": task.description,
+                "subtasks": subtasks_json,
+            },
+        )
 
         if task.description:
             console.print(f"\n{task.description}")
@@ -47,13 +61,13 @@ def cmd_show_task(
             console.print("\n[bold]Subtasks:[/bold]")
             for subtask in task.subtasks:
                 sub_color = _STATUS_COLOR[subtask.status]
-                marker = _STATUS_MARKER[subtask.status]
+                sub_marker = _STATUS_MARKER[subtask.status]
                 if subtask.status == TaskStatus.CANCELLED:
-                    line = f"{marker} {subtask.id}: {subtask.title}"
+                    line = f"{sub_marker} {subtask.id}: {subtask.title}"
                     console.print(f"  [{sub_color}]{line}[/{sub_color}]")
                 else:
                     console.print(
-                        f"  [{sub_color}]{marker}[/{sub_color}]"
+                        f"  [{sub_color}]{sub_marker}[/{sub_color}]"
                         f" [blue]{subtask.id}[/blue]: {subtask.title}"
                     )
 
