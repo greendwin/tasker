@@ -128,6 +128,34 @@ def test_list_default_no_pending_marker_for_subtask() -> None:
     assert "[ ]" not in result.output
 
 
+# s17t06: accept args to filter subtrees
+
+
+def test_list_args_shows_only_specified_task() -> None:
+    task1_id = create_task("First story").task_id
+    task2_id = create_task("Second story").task_id
+    result = assert_invoke(app, ["list", task1_id])
+    assert task1_id in result.output
+    assert task2_id not in result.output
+
+
+def test_list_args_shows_subtasks_of_specified_task() -> None:
+    task_id = create_task("My story").task_id
+    sub_id = add_subtask(task_id, "My subtask").task_id
+    result = assert_invoke(app, ["list", task_id])
+    assert sub_id in result.output
+
+
+def test_list_args_multiple_tasks() -> None:
+    task1_id = create_task("First story").task_id
+    task2_id = create_task("Second story").task_id
+    task3_id = create_task("Third story").task_id
+    result = assert_invoke(app, ["list", task1_id, task3_id])
+    assert task1_id in result.output
+    assert task2_id not in result.output
+    assert task3_id in result.output
+
+
 def test_list_all_indents_nested_subtasks() -> None:
     task_id = create_task("My story").task_id
     sub_id = add_subtask(task_id, "Sub", details="desc").task_id

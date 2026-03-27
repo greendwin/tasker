@@ -68,6 +68,10 @@ def cmd_show_task(
 @app.command("list", help="List open tasks with their pending subtasks.")
 def cmd_list_tasks(
     *,
+    task_refs: Annotated[
+        list[str],
+        typer.Argument(help="Task IDs to show (defaults to all root tasks)."),
+    ] = [],
     show_all: Annotated[
         bool,
         typer.Option("--all", help="Show all subtasks including closed."),
@@ -75,10 +79,13 @@ def cmd_list_tasks(
     repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
-        all_tasks = _load_root_tasks(repo)
+        if task_refs:
+            all_tasks = [resolve_ref(repo, ref, save_recent=True) for ref in task_refs]
+        else:
+            all_tasks = _load_root_tasks(repo)
 
         if not all_tasks:
-            console.print("[dim]No open tasks.[/dim]", json_output={"tasks": []})
+            console.print("[dim]No tasks to show.[/dim]", json_output={"tasks": []})
             return
 
         for task in all_tasks:
