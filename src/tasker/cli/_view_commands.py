@@ -56,11 +56,11 @@ def cmd_show_task(
             sub_marker = _STATUS_MARKER[subtask.status]
             if subtask.status == TaskStatus.CANCELLED:
                 line = f"{sub_marker} {subtask.id}: {subtask.title}"
-                console.print(f"  [{sub_color}]{line}[/{sub_color}]")
+                console.print(f"  - [{sub_color}]{line}[/{sub_color}]")
                 continue
 
             console.print(
-                f"  [{sub_color}]{sub_marker}[/{sub_color}]"
+                f"  - [{sub_color}]{sub_marker}[/{sub_color}]"
                 f" [blue]{subtask.id}[/blue]: {subtask.title}"
             )
 

@@ -65,8 +65,9 @@ def resolve_ref(
     if auto_unarchive and repo.is_archived_task(task_ref):
         ref = parse_task_ref(task_ref)
         repo.unarchive_root_task(ref.root_id)
+        root = repo.resolve_ref(ref.root_id)
         console.print(
-            f"[yellow]Unarchiving [blue]{task_ref}[/blue].[/yellow]",
+            f"[yellow]Unarchiving [blue]{root.ref}[/blue] automatically.[/yellow]",
             json_output={"unarchived_ref": JsonAppend(ref.root_id)},
         )
 

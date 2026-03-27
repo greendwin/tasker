@@ -21,3 +21,4 @@ add 'archive' command that moves complete task to 'planning/archive'
 - [x] s11t10: Unarchive task when trying to 'add' to archived story
 - [ ] s11t11: Allow to move archived task (reference story itself) to non-archived parent
 - [ ] s11t12: Trying to attach any task (either archived or unarchived) to an archived task must unarchive it
+- [ ] s11t13: BUG: when archiving with force, parent status would be CANCELLED regardless of existing done tasks

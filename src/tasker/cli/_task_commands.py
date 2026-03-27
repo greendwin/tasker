@@ -62,7 +62,7 @@ def _report_starting_nonleaf_task(task: Task) -> None:
         in_progress = [t for t in task.subtasks if t.status == TaskStatus.IN_PROGRESS]
         console.print("\nIn-progress subtasks:")
         for t in in_progress:
-            console.print(f"  [blue]{t.id}[/blue]: {t.title}")
+            console.print(f"  - [blue]{t.id}[/blue]: {t.title}")
         return
 
     pending = [t for t in task.subtasks if t.status == TaskStatus.PENDING]
@@ -73,7 +73,7 @@ def _report_starting_nonleaf_task(task: Task) -> None:
 
     console.print("\nPending subtasks:")
     for t in pending:
-        console.print(f"  [blue]{t.id}[/blue]: {t.title}")
+        console.print(f"  - [blue]{t.id}[/blue]: {t.title}")
 
 
 @app.command("reset", help="Reset task(s) back to pending.")
@@ -155,7 +155,7 @@ def cmd_cancel_task(
                 console.print("[yellow]Forcibly cancelled subtasks:[/yellow]")
                 for t in forced:
                     console.print(
-                        f"  [blue]{t.id}[/blue]: {t.title}",
+                        f"  - [blue]{t.id}[/blue]: {t.title}",
                         json_output={
                             "forced_task_ids": JsonAppend(t.id),
                         },
@@ -184,7 +184,7 @@ def _report_cancelling_nonleaf_task(
     console.print("Cancel its open subtasks first, or use [bold]--force[/bold].")
     console.print("\nOpen subtasks:")
     for t in open_tasks:
-        console.print(f"  [blue]{t.id}[/blue]: {t.title}")
+        console.print(f"  - [blue]{t.id}[/blue]: {t.title}")
 
 
 @app.command("done", help="Mark task(s) as done.")
@@ -223,7 +223,7 @@ def cmd_done_task(
                 console.print("[yellow]Forcibly closed subtasks:[/yellow]")
                 for t in forced:
                     console.print(
-                        f"  [blue]{t.id}[/blue]: {t.title}",
+                        f"  - [blue]{t.id}[/blue]: {t.title}",
                         json_output={
                             "forced_task_ids": JsonAppend(t.id),
                         },
@@ -251,7 +251,7 @@ def _report_finishing_nonleaf_task(task: Task) -> None:
 
     console.print("\nOpen subtasks:")
     for t in open_tasks:
-        console.print(f"  [blue]{t.id}[/blue]: {t.title}")
+        console.print(f"  - [blue]{t.id}[/blue]: {t.title}")
 
 
 @app.command("edit", help="Edit task properties (title, details, slug).")

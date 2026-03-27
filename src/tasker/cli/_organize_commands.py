@@ -40,7 +40,7 @@ def cmd_archive_task(
                 console.print("[yellow]Forcibly cancelled subtasks:[/yellow]")
                 for t in forced:
                     console.print(
-                        f"  [blue]{t.id}[/blue]: {t.title}",
+                        f"  - [blue]{t.id}[/blue]: {t.title}",
                         json_output={"forced_task_ids": JsonAppend(t.id)},
                     )
 
@@ -85,7 +85,7 @@ def _report_open_task(task: Task) -> None:
         console.print("Close its open subtasks first, or use [bold]--force[/bold].")
         console.print("\nOpen subtasks:")
         for t in open_tasks:
-            console.print(f"  [blue]{t.id}[/blue]: {t.title}")
+            console.print(f"  - [blue]{t.id}[/blue]: {t.title}")
     else:
         console.print("Use [bold]--force[/bold] to cancel and archive.")
 
