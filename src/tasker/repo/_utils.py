@@ -82,23 +82,27 @@ def update_task_status_and_flags(task: Task, *, allow_downgrade: bool) -> None:
     task.status = get_status_from_subtasks(task)
 
     if any(not s.is_inline for s in task.subtasks):
+        # upgrade to extended (or noop if was extended already)
         task.extended = True
-    elif allow_downgrade:
-        task.extended = False
+        return
 
+    if not allow_downgrade:
+        return
 
-def try_downgrade_to_inline(task: Task) -> None:
+    task.extended = False
+
+    # check whether task can be downgraded to inline
     if task.is_inline or is_root_task_id(task.id):
+        # note: root tasks must be file-based
         return
 
-    if task.description is not None or task.extra_sections is not None:
+    if task.description or task.extra_sections:
         return
-
     if task.subtasks:
         return
 
+    # convert to inline
     task.slug = None
-    task.extended = False
 
 
 def upgrade_to_filebased(task: Task, *, loader: TaskLoader) -> None:

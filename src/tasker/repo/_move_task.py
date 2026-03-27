@@ -10,7 +10,6 @@ from ._task_loader import TaskLoader
 from ._utils import (
     find_next_root_task_id,
     get_next_subtask_id,
-    try_downgrade_to_inline,
     update_parents_status,
     upgrade_to_filebased,
 )
@@ -57,7 +56,12 @@ def move_task_impl(
     _reregister_tree(task, prev_id, renames, loader=loader)
 
     new_parent.subtasks.append(task)
-    update_parents_status(task, loader=loader)
+    update_parents_status(
+        task,
+        loader=loader,
+        update_itself=True,
+        allow_downgrade=True,
+    )
 
     loader.flush_to_disk()
 
@@ -103,7 +107,7 @@ def _detach_from_parent(task: Task, *, loader: TaskLoader) -> None:
 
     assert task in parent.subtasks
     parent.subtasks.remove(task)
-    try_downgrade_to_inline(parent)
+
     # allow_downgrade=True: extended→basic collapse is only permitted during move
     update_parents_status(
         parent, update_itself=True, allow_downgrade=True, loader=loader

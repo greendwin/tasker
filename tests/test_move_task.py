@@ -517,3 +517,81 @@ def test_edit_does_not_downgrade_extended_to_basic(s1: str, tasks_root: Path) ->
     src_dirs_after = list(tasks_root.glob(f"{s1}-*/"))
     assert len(src_dirs_after) == 1
     assert src_dirs_after[0].is_dir()
+
+
+# ---------------------------------------------------------------------------
+# Moved task itself downgrades to inline when eligible (s09t0706)
+# ---------------------------------------------------------------------------
+
+
+def test_move_root_task_without_description_becomes_inline(
+    s2: str, tasks_root: Path
+) -> None:
+    """A root task with no description or subtasks should become inline
+    when moved under another task."""
+    s1 = create_task("Simple story").task_id  # file-based, no description, no subtasks
+
+    assert_invoke(app, ["move", s1, "--parent", s2])
+
+    # The moved task (now s2t01) must be inline — no separate file
+    new_id = f"{s2}t01"
+    assert not any(
+        tasks_root.rglob(f"{new_id}-*.md")
+    ), f"Expected {new_id} to be inline, but a file was found"
+
+    # Must appear as an inline bullet inside s2's file
+    s2_file = next(tasks_root.glob(f"{s2}-*.md"))
+    s2_content = s2_file.read_text()
+    assert f"{new_id}: Simple story" in s2_content
+
+
+def test_move_root_task_with_description_stays_basic(s2: str, tasks_root: Path) -> None:
+    """A root task WITH description must remain file-based after being moved."""
+    s1 = create_task("Story with desc").task_id
+    assert_invoke(app, ["edit", s1, "--details", "Important context"])
+
+    assert_invoke(app, ["move", s1, "--parent", s2])
+
+    new_id = f"{s2}t01"
+    assert any(
+        tasks_root.rglob(f"{new_id}-*.md")
+    ), f"Expected {new_id} to remain file-based, but no file was found"
+
+
+def test_move_basic_subtask_without_description_becomes_inline(
+    s1: str, s2: str, tasks_root: Path
+) -> None:
+    """A basic (file-based) subtask whose description was later cleared
+    should become inline when moved to another parent."""
+    t01 = add_subtask(s1, "Transient task", details="Initial description").task_id
+
+    # Manually clear the description from the file
+    s1_dir = next(tasks_root.glob(f"{s1}-*/"))
+    t01_file = next(s1_dir.glob(f"{t01}-*.md"))
+    content = t01_file.read_text()
+    cleared = "\n".join(
+        line for line in content.splitlines() if line != "Initial description"
+    )
+    t01_file.write_text(cleared)
+
+    assert_invoke(app, ["move", t01, "--parent", s2])
+
+    new_id = f"{s2}t01"
+    assert not any(
+        tasks_root.rglob(f"{new_id}-*.md")
+    ), f"Expected {new_id} to be inline after move, but a file was found"
+
+
+def test_move_basic_subtask_with_description_stays_basic(
+    s1: str, s2: str, tasks_root: Path
+) -> None:
+    """A basic (file-based) subtask with a non-empty description must
+    remain file-based after the move."""
+    t01 = add_subtask(s1, "Rich task", details="Keeps description").task_id
+
+    assert_invoke(app, ["move", t01, "--parent", s2])
+
+    new_id = f"{s2}t01"
+    assert any(
+        tasks_root.rglob(f"{new_id}-*.md")
+    ), f"Expected {new_id} to remain file-based, but no file was found"

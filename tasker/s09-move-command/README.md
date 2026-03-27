@@ -1,6 +1,6 @@
 ---
 id: s09
-status: pending
+status: done
 ---
 
 # Support move command that attaches subtree to another task or make it a separate story
@@ -13,4 +13,4 @@ status: pending
 - [x] s09t04: Remove old files (need to store original file, current heuristics is not enough)
 - [x] s09t05: Refactor move code - store original files in Loader (see s13)
 - [x] s09t06: BUG: moving inline task to root does not create a task
-- [ ] [s09t07](s09t07-task-degradation.md): Task degradation
+- [x] [s09t07](s09t07-task-degradation.md): Task degradation
