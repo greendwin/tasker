@@ -377,3 +377,41 @@ def test_move_task_to_archived_parent_auto_unarchives(
     assert "moved" in result.output.lower()
     # story2 should be back in tasks root
     assert any(tasks_root.glob(f"{story2_id}-*"))
+
+
+# --- --closed flag ---
+
+
+def test_archive_closed_archives_all_closed_stories(story_id: str) -> None:
+    story2_id = create_task("Second story").task_id
+    story3_id = create_task("Third story (open)").task_id  # stays open
+    assert_invoke(app, ["done", "--force", story_id])
+    assert_invoke(app, ["done", "--force", story2_id])
+    result = assert_invoke(app, ["archive", "--closed"])
+    assert story_id in result.output
+    assert story2_id in result.output
+    assert story3_id not in result.output
+
+
+def test_archive_closed_skips_open_stories(story_id: str) -> None:
+    assert_invoke(app, ["done", "--force", story_id])
+    open_id = create_task("Open story").task_id
+    result = assert_invoke(app, ["archive", "--closed"])
+    assert story_id in result.output
+    assert open_id not in result.output
+
+
+def test_archive_no_args_fails() -> None:
+    result = assert_invoke(app, ["archive"], expect_error=True)
+    assert "closed" in result.output.lower()
+
+
+def test_archive_closed_with_explicit_ids(story_id: str) -> None:
+    story2_id = create_task("Second story").task_id
+    assert_invoke(app, ["done", "--force", story_id])
+    # story2 stays open; pass it explicitly alongside --closed
+    result = assert_invoke(app, ["archive", "--closed", story2_id, "--force"])
+    # story_id was closed → archived via --closed
+    assert story_id in result.output
+    # story2_id was open but passed explicitly with --force
+    assert story2_id in result.output

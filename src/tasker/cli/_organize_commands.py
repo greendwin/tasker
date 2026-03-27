@@ -4,7 +4,7 @@ import typer
 from typer_di import Depends
 
 from tasker.base_types import Task, is_root_task_id
-from tasker.exceptions import TaskValidateError
+from tasker.exceptions import TaskerError
 from tasker.repo import TaskRepo
 from tasker.utils import JsonAppend, console
 
@@ -15,14 +15,35 @@ from ._common import app, get_task_repo, resolve_ref, save_recent_task
 @app.command("archive", help="Archive a completed root task.")
 def cmd_archive_task(
     *,
-    task_refs: Annotated[list[str], typer.Argument(help="Root task ID(s) to archive.")],
+    task_refs: Annotated[
+        Optional[list[str]], typer.Argument(help="Root task ID(s) to archive.")
+    ] = None,
     force: Annotated[
         bool,
         typer.Option("--force", help="Cancel open subtasks before archiving."),
     ] = False,
+    all_closed: Annotated[
+        bool,
+        typer.Option("--closed", help="Archive all closed (done/cancelled) stories."),
+    ] = False,
     repo: TaskRepo = Depends(get_task_repo),
 ) -> None:
     with console.catching_output():
+        if not task_refs and not all_closed:
+            raise TaskerError("Specify <task_ref> or --closed.", json_output={})
+
+        if not task_refs:
+            task_refs = []
+
+        if all_closed:
+            for id in repo.list_root_tasks():
+                if id in task_refs:
+                    continue
+
+                task = repo.resolve_ref(id)
+                if task.is_closed:
+                    task_refs.append(id)
+
         for task_ref in task_refs:
             task = resolve_ref(repo, task_ref)
 
@@ -106,16 +127,12 @@ def cmd_move_task(
 ) -> None:
     with console.catching_output():
         if parent_ref is not None and root:
-            raise TaskValidateError(
-                "Cannot specify both --parent and --root.",
-                task_ref=task_refs[0] if task_refs else "",
+            raise TaskerError(
+                "Cannot specify both --parent and --root.", json_output={}
             )
 
         if parent_ref is None and not root:
-            raise TaskValidateError(
-                "Specify --parent <ref> or --root.",
-                task_ref=task_refs[0] if task_refs else "",
-            )
+            raise TaskerError("Specify --parent <ref> or --root.", json_output={})
 
         new_parent = (
             resolve_ref(repo, parent_ref, auto_unarchive=True)

@@ -3,7 +3,9 @@ id: s09
 status: done
 ---
 
-# Support move command that attaches subtree to another task or make it a separate story
+# Support move command 
+
+Attache subtree to another task or make it a separate story
 
 ## Subtasks
 

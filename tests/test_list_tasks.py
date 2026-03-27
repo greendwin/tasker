@@ -14,7 +14,7 @@ def test_list_shows_task_title() -> None:
 
 def test_list_no_tasks_prints_empty_message() -> None:
     result = assert_invoke(app, ["list"])
-    assert "No open tasks" in result.output
+    assert "No tasks to show" in result.output
 
 
 def test_list_shows_open_subtask() -> None:
