@@ -117,7 +117,7 @@ def test_json_renames(s1: str, s2: str) -> None:
     data = json.loads(result.output)
     assert "renames" in data
     assert data["renames"][0]["old_id"] == t01
-    assert "task_ref" in data
+    assert "task_refs" in data
 
 
 def test_json_move_to_root(s1: str) -> None:
@@ -125,7 +125,7 @@ def test_json_move_to_root(s1: str) -> None:
     result = assert_invoke(app, ["--json-output", "move", t01, "--root"])
     data = json.loads(result.output)
     assert "renames" in data
-    assert "task_ref" in data
+    assert "task_refs" in data
 
 
 # ---------------------------------------------------------------------------
@@ -366,7 +366,7 @@ def test_json_move_idempotent(s1: str) -> None:
     result = assert_invoke(app, ["--json-output", "move", s1, "--root"])
     data = json.loads(result.output)
     assert data.get("already") is True
-    assert "task_ref" in data
+    assert "task_refs" in data
 
 
 # ---------------------------------------------------------------------------
@@ -595,3 +595,23 @@ def test_move_basic_subtask_with_description_stays_basic(
     assert any(
         tasks_root.rglob(f"{new_id}-*.md")
     ), f"Expected {new_id} to remain file-based, but no file was found"
+
+
+# ---------------------------------------------------------------------------
+# Multiple args (s09t08)
+# ---------------------------------------------------------------------------
+
+
+def test_move_multiple_tasks_to_parent(s1: str, s2: str) -> None:
+    t01 = add_subtask(s1, "Task A").task_id
+    t02 = add_subtask(s1, "Task B").task_id
+    result = assert_invoke(app, ["move", t01, t02, "--parent", s2])
+    assert "moved" in result.output
+    assert s2 in result.output
+
+
+def test_move_multiple_tasks_to_root(s2: str) -> None:
+    t01 = add_subtask(s2, "Task A").task_id
+    t02 = add_subtask(s2, "Task B").task_id
+    result = assert_invoke(app, ["move", t01, t02, "--root"])
+    assert "moved" in result.output

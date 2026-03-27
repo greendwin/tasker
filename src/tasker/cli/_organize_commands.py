@@ -93,7 +93,7 @@ def _report_open_task(task: Task) -> None:
 @app.command("move", help="Move a task under a new parent or to root level.")
 def cmd_move_task(
     *,
-    task_ref: Annotated[str, typer.Argument(help="Task ID to move.")],
+    task_refs: Annotated[list[str], typer.Argument(help="Task ID(s) to move.")],
     parent_ref: Annotated[
         Optional[str],
         typer.Option("--parent", "-p", help="New parent task ID."),
@@ -108,52 +108,60 @@ def cmd_move_task(
         if parent_ref is not None and root:
             raise TaskValidateError(
                 "Cannot specify both --parent and --root.",
-                task_ref=task_ref,
+                task_ref=task_refs[0] if task_refs else "",
             )
 
         if parent_ref is None and not root:
             raise TaskValidateError(
                 "Specify --parent <ref> or --root.",
-                task_ref=task_ref,
+                task_ref=task_refs[0] if task_refs else "",
             )
 
-        task = resolve_ref(repo, task_ref, auto_unarchive=True)
         new_parent = (
             resolve_ref(repo, parent_ref, auto_unarchive=True)
             if parent_ref is not None
             else None
         )
-        renames = repo.move_task(task, new_parent=new_parent)
-
-        # save regenerated id
-        save_recent_task(repo, task.id)
-
-        if not renames:
-            # idempotent — task is already at the requested location
-            console.print(
-                f"[green]Task [blue]{task.ref}[/blue]"
-                " is already in the requested location[/green]",
-                json_output={"task_ref": task.ref, "already": True},
-            )
-            return
-
-        console.print("[yellow]Renamed tasks:[/yellow]")
-        for r in renames:
-            console.print(
-                f"  {r.old_id} → {r.new_id}",
-                json_output={
-                    "renames": JsonAppend({"old_id": r.old_id, "new_id": r.new_id})
-                },
-            )
 
         if new_parent is not None:
-            console.print(
-                f"[green]Task [blue]{task.ref}[/blue]"
-                f" moved under [blue]{new_parent.ref}[/blue][/green]",
-                json_output={"task_ref": task.ref, "parent_ref": new_parent.ref},
-            )
-        else:
-            console.print(
-                f"[green]Task [blue]{task.ref}[/blue] moved to root[/green]",
-                json_output={"task_ref": task.ref},
-            )
+            console.print("", end="", json_output={"parent_ref": new_parent.ref})
+
+        for k, task_ref in enumerate(task_refs):
+            task = resolve_ref(repo, task_ref, auto_unarchive=True)
+            renames = repo.move_task(task, new_parent=new_parent)
+
+            # save regenerated id
+            save_recent_task(repo, task.id)
+
+            if k > 0:
+                console.print("")
+
+            if not renames:
+                # idempotent — task is already at the requested location
+                console.print(
+                    f"[green]Task [blue]{task.ref}[/blue]"
+                    " is already in the requested location[/green]",
+                    json_output={"task_refs": JsonAppend(task.ref), "already": True},
+                )
+                continue
+
+            if new_parent is None:
+                console.print(
+                    f"[green]Task [blue]{task.ref}[/blue] moved to root[/green]",
+                    json_output={"task_refs": JsonAppend(task.ref)},
+                )
+            else:
+                console.print(
+                    f"[green]Task [blue]{task.ref}[/blue]"
+                    f" moved under [blue]{new_parent.ref}[/blue][/green]",
+                    json_output={"task_refs": JsonAppend(task.ref)},
+                )
+
+            console.print("[yellow]Renamed tasks:[/yellow]")
+            for r in renames:
+                console.print(
+                    f"  [cyan]{r.old_id}[/cyan] → [blue]{r.new_id}[/blue]",
+                    json_output={
+                        "renames": JsonAppend({"old_id": r.old_id, "new_id": r.new_id})
+                    },
+                )
