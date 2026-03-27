@@ -10,6 +10,10 @@ Show currently opened tasks with their subtasks to easily overview what is next
 ## Subtasks
 
 - [x] s17t01: List opened tasks (depth=1)
-- [ ] s17t02: Support `--closed` but still depth=1
-- [ ] s17t03: Support `--depth=N` option with special `--depth=all`
-- [ ] s17t04: Support `--all` that shows full depth and closeed
+- [x] ~~s17t02: Support `--closed` but still depth=1~~
+- [x] ~~s17t03: Support `--depth=N` option with special `--depth=all`~~
+- [x] s17t04: Support `--all` that shows all tasks including closed
+- [x] s17t05: Show all opened tasks recursively
+- [ ] s17t06: Accept arguments to 'list' to show only provided subtrees
+- [ ] s17t07: Show cancelled tasks full in gray same as in 'view'
+- [ ] s17t08: When --all is used -- always show task status marker
