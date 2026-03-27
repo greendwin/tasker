@@ -57,26 +57,34 @@ def get_status_from_subtasks(task: Task) -> TaskStatus:
     return TaskStatus.PENDING
 
 
-def has_file_subtasks(task: Task) -> bool:
-    return any(not s.is_inline for s in task.subtasks)
-
-
 def update_parents_status(
-    task: Task, *, loader: TaskLoader, update_itself: bool = False
+    task: Task,
+    *,
+    loader: TaskLoader,
+    update_itself: bool = False,
+    allow_downgrade: bool = False,
 ) -> None:
     if update_itself:
-        task.status = get_status_from_subtasks(task)
-        task.extended = has_file_subtasks(task)
+        update_task_status_and_flags(task, allow_downgrade=allow_downgrade)
 
     cur_id = task.id
     while not is_root_task_id(cur_id):
         ri = parse_task_ref(cur_id)
         parent = loader.resolve_ref(ri.parent_id)
 
-        assert not parent.is_inline
-        parent.status = get_status_from_subtasks(parent)
-        parent.extended = has_file_subtasks(parent)
+        assert not parent.is_inline, "parent should not be inline due to subtasks"
+        update_task_status_and_flags(parent, allow_downgrade=allow_downgrade)
+
         cur_id = parent.id
+
+
+def update_task_status_and_flags(task: Task, *, allow_downgrade: bool) -> None:
+    task.status = get_status_from_subtasks(task)
+
+    if any(not s.is_inline for s in task.subtasks):
+        task.extended = True
+    elif allow_downgrade:
+        task.extended = False
 
 
 def try_downgrade_to_inline(task: Task) -> None:

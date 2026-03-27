@@ -104,7 +104,10 @@ def _detach_from_parent(task: Task, *, loader: TaskLoader) -> None:
     assert task in parent.subtasks
     parent.subtasks.remove(task)
     try_downgrade_to_inline(parent)
-    update_parents_status(parent, update_itself=True, loader=loader)
+    # allow_downgrade=True: extended→basic collapse is only permitted during move
+    update_parents_status(
+        parent, update_itself=True, allow_downgrade=True, loader=loader
+    )
 
 
 def _reregister_tree(

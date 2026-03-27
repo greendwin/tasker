@@ -7,7 +7,7 @@ from tasker.exceptions import TaskArchivedError, TaskValidateError
 from tasker.parse import ParsedSubtask, detect_task_type, parse_task, parse_task_ref
 from tasker.render import build_task_file_path, render_task, write_task_file
 
-from ._utils import get_status_from_subtasks, has_file_subtasks
+from ._utils import update_task_status_and_flags
 
 _ARCHIVE_DIR = "archive"
 
@@ -258,5 +258,4 @@ def _invalidate_task_flags(task: Task) -> None:
         _invalidate_task_flags(child)
 
     # update root itself
-    task.status = get_status_from_subtasks(task)
-    task.extended = task.extended or has_file_subtasks(task)
+    update_task_status_and_flags(task, allow_downgrade=False)

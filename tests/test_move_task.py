@@ -439,3 +439,81 @@ def test_move_all_subtasks_downgrades_parent_to_inline(
     story_content = story_file.read_text()
     assert "Container" in story_content
     assert f"- [ ] {t01}: Container" in story_content
+
+
+# ---------------------------------------------------------------------------
+# Non-move commands must NOT downgrade extended tasks (s09t0705)
+# ---------------------------------------------------------------------------
+
+
+def test_done_does_not_downgrade_extended_to_basic(s1: str, tasks_root: Path) -> None:
+    """Marking a subtask done must not collapse the parent directory."""
+    t01 = add_subtask(s1, "Task A", details="Has details").task_id
+
+    # s1 is extended (directory)
+    src_dirs = list(tasks_root.glob(f"{s1}-*/"))
+    assert len(src_dirs) == 1
+
+    assert_invoke(app, ["done", t01])
+
+    # s1 must still be a directory, not a flat file
+    src_dirs_after = list(tasks_root.glob(f"{s1}-*/"))
+    assert len(src_dirs_after) == 1
+    assert src_dirs_after[0].is_dir()
+
+
+def test_cancel_does_not_downgrade_extended_to_basic(s1: str, tasks_root: Path) -> None:
+    """Cancelling a subtask must not collapse the parent directory."""
+    t01 = add_subtask(s1, "Task A", details="Has details").task_id
+
+    src_dirs = list(tasks_root.glob(f"{s1}-*/"))
+    assert len(src_dirs) == 1
+
+    assert_invoke(app, ["cancel", t01])
+
+    src_dirs_after = list(tasks_root.glob(f"{s1}-*/"))
+    assert len(src_dirs_after) == 1
+    assert src_dirs_after[0].is_dir()
+
+
+def test_start_does_not_downgrade_extended_to_basic(s1: str, tasks_root: Path) -> None:
+    """Starting a subtask must not collapse the parent directory."""
+    t01 = add_subtask(s1, "Task A", details="Has details").task_id
+
+    src_dirs = list(tasks_root.glob(f"{s1}-*/"))
+    assert len(src_dirs) == 1
+
+    assert_invoke(app, ["start", t01])
+
+    src_dirs_after = list(tasks_root.glob(f"{s1}-*/"))
+    assert len(src_dirs_after) == 1
+    assert src_dirs_after[0].is_dir()
+
+
+def test_reset_does_not_downgrade_extended_to_basic(s1: str, tasks_root: Path) -> None:
+    """Resetting a subtask must not collapse the parent directory."""
+    t01 = add_subtask(s1, "Task A", details="Has details").task_id
+    assert_invoke(app, ["start", t01])
+
+    src_dirs = list(tasks_root.glob(f"{s1}-*/"))
+    assert len(src_dirs) == 1
+
+    assert_invoke(app, ["reset", t01])
+
+    src_dirs_after = list(tasks_root.glob(f"{s1}-*/"))
+    assert len(src_dirs_after) == 1
+    assert src_dirs_after[0].is_dir()
+
+
+def test_edit_does_not_downgrade_extended_to_basic(s1: str, tasks_root: Path) -> None:
+    """Editing a subtask title must not collapse the parent directory."""
+    t01 = add_subtask(s1, "Task A", details="Has details").task_id
+
+    src_dirs = list(tasks_root.glob(f"{s1}-*/"))
+    assert len(src_dirs) == 1
+
+    assert_invoke(app, ["edit", t01, "--title", "Updated title"])
+
+    src_dirs_after = list(tasks_root.glob(f"{s1}-*/"))
+    assert len(src_dirs_after) == 1
+    assert src_dirs_after[0].is_dir()
