@@ -1,6 +1,6 @@
 ---
 id: s09
-status: done
+status: pending
 ---
 
 # Support move command that attaches subtree to another task or make it a separate story
@@ -14,3 +14,4 @@ status: done
 - [x] s09t05: Refactor move code - store original files in Loader (see s13)
 - [x] s09t06: BUG: moving inline task to root does not create a task
 - [x] [s09t07](s09t07-task-degradation.md): Task degradation
+- [ ] s09t08: Accept multiple args, move all tasks either to root or attach to a parent

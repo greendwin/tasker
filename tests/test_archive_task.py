@@ -133,6 +133,20 @@ def test_archive_force_preserves_done_subtasks(
     assert parsed.subtasks[1].status == TaskStatus.CANCELLED
 
 
+def test_archive_force_parent_status_is_done_when_some_subtasks_done(
+    tasks_archive_root: Path, story_id: str
+) -> None:
+    t01 = add_subtask(story_id, "Done task").task_id
+    add_subtask(story_id, "Open task")
+    assert_invoke(app, ["done", t01])
+    assert_invoke(app, ["archive", "--force", story_id])
+
+    archived_file = next((tasks_archive_root).glob(f"{story_id}-*.md"))
+    parsed = parse_task_file(archived_file)
+    # root task has one DONE and one CANCELLED subtask → status should be DONE
+    assert parsed.task.status == TaskStatus.DONE
+
+
 def test_archive_force_already_closed_task(story_id: str) -> None:
     assert_invoke(app, ["done", "--force", story_id])
     result = assert_invoke(app, ["archive", "--force", story_id])

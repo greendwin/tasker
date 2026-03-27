@@ -127,7 +127,7 @@ class TaskRepo:
 
         closed_tasks: list[Task] = []
         _close_recursive(task, TaskStatus.CANCELLED, closed_tasks)
-        update_parents_status(task, loader=self.loader)
+        update_parents_status(task, loader=self.loader, update_itself=True)
         return closed_tasks[1:]  # don't include root task
 
     def finish_task(self, task: Task, *, force: bool = False) -> list[Task] | None:
