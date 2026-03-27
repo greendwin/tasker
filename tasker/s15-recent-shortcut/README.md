@@ -29,4 +29,5 @@ tasker start q01  # started s12t0201
 - [x] s15t04: Rework 'planning' to 'tasker'
 - [x] [s15t05](s15t05-store-last-target-task.md): Store last target task
 - [ ] s15t06: Shortcuts usage should NEVER update 'recent'
-- [ ] s15t07: BUG: on add new tasks overrides 'recent'
+- [ ] [s15t07](s15t07-bug-on-add-new-tasks.md): BUG: on add new tasks overrides 'recent'
+- [ ] s15t08: TBD: move to parent should target parent, not a new child

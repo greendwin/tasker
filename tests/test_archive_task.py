@@ -146,8 +146,8 @@ def test_json_archive_outputs_task_ref(story_id: str) -> None:
     assert_invoke(app, ["done", "--force", story_id])
     result = assert_invoke(app, ["--json-output", "archive", story_id])
     data = json.loads(result.output)
-    assert "task_ref" in data
-    assert story_id in data["task_ref"]
+    assert "task_refs" in data
+    assert story_id in data["task_refs"][0]
 
 
 def test_json_archive_force_includes_forced_ids(story_id: str) -> None:
@@ -164,6 +164,26 @@ def test_json_archive_not_closed_outputs_error(story_id: str) -> None:
     )
     data = json.loads(result.output)
     assert "error" in data
+
+
+def test_archive_multiple_tasks(story_id: str) -> None:
+    story2_id = create_task("Second story").task_id
+    assert_invoke(app, ["done", "--force", story_id])
+    assert_invoke(app, ["done", "--force", story2_id])
+    result = assert_invoke(app, ["archive", story_id, story2_id])
+    assert story_id in result.output
+    assert story2_id in result.output
+
+
+def test_json_archive_multiple_tasks(story_id: str) -> None:
+    story2_id = create_task("Second story").task_id
+    assert_invoke(app, ["done", "--force", story_id])
+    assert_invoke(app, ["done", "--force", story2_id])
+    result = assert_invoke(app, ["--json-output", "archive", story_id, story2_id])
+    data = json.loads(result.output)
+    assert len(data["task_refs"]) == 2
+    assert any(story_id in r for r in data["task_refs"])
+    assert any(story2_id in r for r in data["task_refs"])
 
 
 def test_archive_nonexistent_task_fails() -> None:
@@ -290,5 +310,25 @@ def test_json_unarchive_outputs_task_ref(story_id: str) -> None:
     _archive_story(story_id)
     result = assert_invoke(app, ["--json-output", "unarchive", story_id])
     data = json.loads(result.output)
-    assert "task_ref" in data
-    assert story_id in data["task_ref"]
+    assert "task_refs" in data
+    assert story_id in data["task_refs"][0]
+
+
+def test_unarchive_multiple_tasks(story_id: str) -> None:
+    story2_id = create_task("Second story").task_id
+    _archive_story(story_id)
+    _archive_story(story2_id)
+    result = assert_invoke(app, ["unarchive", story_id, story2_id])
+    assert story_id in result.output
+    assert story2_id in result.output
+
+
+def test_json_unarchive_multiple_tasks(story_id: str) -> None:
+    story2_id = create_task("Second story").task_id
+    _archive_story(story_id)
+    _archive_story(story2_id)
+    result = assert_invoke(app, ["--json-output", "unarchive", story_id, story2_id])
+    data = json.loads(result.output)
+    assert len(data["task_refs"]) == 2
+    assert any(story_id in r for r in data["task_refs"])
+    assert any(story2_id in r for r in data["task_refs"])
