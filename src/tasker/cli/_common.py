@@ -51,16 +51,7 @@ def resolve_ref(
 ) -> Task:
     is_direct_link = task_ref.startswith("s")
     if not is_direct_link:
-        if task_ref == "q":
-            task_ref = _resolve_recent(repo, task_ref)
-        elif m := re.fullmatch(r"q((?:\d{2})+)", task_ref):
-            task_ref = make_child_ref(_resolve_recent(repo, task_ref), m.group(1))
-        elif task_ref == "p":
-            recent = parse_task_ref(_resolve_recent(repo, task_ref))
-            task_ref = recent.parent_id
-        elif m := re.fullmatch(r"p((?:\d{2})+)", task_ref):
-            recent = parse_task_ref(_resolve_recent(repo, task_ref))
-            task_ref = make_child_ref(recent.parent_id, m.group(1))
+        task_ref = _resolve_recent(repo, task_ref)
 
     if auto_unarchive and repo.is_archived_task(task_ref):
         ref = parse_task_ref(task_ref)
@@ -93,6 +84,34 @@ def save_recent_task(repo: TaskRepo, task_id: str) -> None:
 
 
 def _resolve_recent(repo: TaskRepo, task_ref: str) -> str:
+    if not task_ref.startswith(("p", "q")):
+        # resolve as-is, try to resolve in repo
+        return task_ref
+
+    recent_ref = _load_recent(repo, task_ref)
+
+    if task_ref == "q":
+        return recent_ref
+
+    # links like q0102
+    if m := re.fullmatch(r"q((?:\d{2})+)", task_ref):
+        return make_child_ref(recent_ref, m.group(1))
+
+    # links like p, p01, pp, pp0102
+    if m := re.fullmatch(r"(p+)((?:\d{2})+)?", task_ref):
+        ancestor_id = recent_ref
+        for _ in range(len(m.group(1))):
+            ancestor_id = parse_task_ref(ancestor_id).parent_id
+        digits = m.group(2)
+
+        if digits:
+            return make_child_ref(ancestor_id, digits)
+        return ancestor_id
+
+    raise TaskValidateError(f"Invalid recent reference {task_ref!r}", task_ref=task_ref)
+
+
+def _load_recent(repo: TaskRepo, task_ref: str) -> str:
     path = repo.root / _RECENT_FILE
     if not path.exists():
         raise TaskValidateError("Recent task was not set yet", task_ref=task_ref)
@@ -100,6 +119,7 @@ def _resolve_recent(repo: TaskRepo, task_ref: str) -> str:
     text = path.read_text().strip()
     if not text:
         raise TaskValidateError("Recent task was not set yet", task_ref=task_ref)
+
     return text
 
 

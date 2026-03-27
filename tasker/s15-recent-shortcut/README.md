@@ -1,6 +1,6 @@
 ---
 id: s15
-status: pending
+status: done
 ---
 
 # Recent shortcut
@@ -31,4 +31,4 @@ tasker start q01  # started s12t0201
 - [x] s15t06: Shortcuts usage should NEVER update 'recent'
 - [x] [s15t07](s15t07-bug-on-add-new-tasks.md): BUG: on add new tasks overrides 'recent'
 - [x] ~~s15t08: TBD: move to parent should target parent, not a new child~~
-- [ ] s15t09: Support 'pp' reference aka parent of the parent
+- [x] s15t09: Support 'pp' reference aka parent of the parent
