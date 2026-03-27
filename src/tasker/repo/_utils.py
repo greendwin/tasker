@@ -88,7 +88,7 @@ def try_downgrade_to_inline(task: Task) -> None:
 
     if task.subtasks:
         return
-    
+
     task.slug = None
     task.extended = False
 
